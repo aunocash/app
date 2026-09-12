@@ -28,6 +28,36 @@ body {
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #a4afc5 transparent;
+}
+
+html::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: #a4afc5;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: #7888aa;
+  border-width: 1px;
+}
+
+html::-webkit-scrollbar-corner {
+  background: transparent;
+}
 a {
   text-decoration: none;
   color: inherit;

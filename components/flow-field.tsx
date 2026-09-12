@@ -1,14 +1,9 @@
 "use client";
+
 import { useState } from "react";
-import {
-  ArrowRight,
-  Check,
-  GitBranch,
-  Store,
-  Users,
-  Landmark,
-} from "lucide-react";
+import { ArrowRight, GitBranch } from "lucide-react";
 import { Logo } from "./site-shell";
+
 export function FlowField() {
   return (
     <div className="flow-field" aria-hidden="true">
@@ -40,58 +35,87 @@ export function FlowField() {
     </div>
   );
 }
+
 export function SplitPaymentVisualizer() {
   const [replay, setReplay] = useState(0);
+  const destinations = [
+    { name: "Merchant", amount: 80 },
+    { name: "Affiliate", amount: 15 },
+    { name: "Treasury", amount: 5 },
+  ];
+
   return (
     <div className="split-visual">
       <div className="split-flow" key={replay}>
         <div className="split-input">
-          <span className="currency-circle">$</span>
+          <span>ONE PAYMENT</span>
           <strong>
             100 <small>USDC</small>
           </strong>
-          <span>One payment</span>
         </div>
         <div className="split-hub">
           <Logo markOnly />
         </div>
         <svg
           className="split-lines"
-          viewBox="0 0 500 280"
+          viewBox="0 0 720 320"
           preserveAspectRatio="none"
           aria-hidden="true"
         >
-          <g fill="none" stroke="#c3cbe0" strokeWidth="1.5">
-            <path d="M65 140H205" />
-            <path d="M235 140C290 140 265 45 340 45H390" />
-            <path d="M235 140H390" />
-            <path d="M235 140C290 140 265 235 340 235H390" />
+          <g fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M118 160H293" />
+            <path d="M357 160C426 160 420 60 503 60H568" />
+            <path d="M357 160H568" />
+            <path d="M357 160C426 160 420 260 503 260H568" />
           </g>
-          <circle className="split-dot split-dot-in" r="4" fill="#8e9bc0" />
-          <circle className="split-dot split-dot-top" r="4" fill="#8e9bc0" />
-          <circle className="split-dot split-dot-mid" r="4" fill="#8e9bc0" />
-          <circle className="split-dot split-dot-bottom" r="4" fill="#8e9bc0" />
+          <g className="split-motion" fill="currentColor">
+            <circle className="split-dot split-dot-input" r="4">
+              <animateMotion
+                dur="2.6s"
+                path="M118 160H293"
+                repeatCount="indefinite"
+              />
+            </circle>
+            <circle className="split-dot" r="4.5">
+              <animateMotion
+                begin="0.65s"
+                dur="3.1s"
+                path="M357 160C426 160 420 60 503 60H568"
+                repeatCount="indefinite"
+              />
+            </circle>
+            <circle className="split-dot" r="4.5">
+              <animateMotion
+                begin="0.9s"
+                dur="2.9s"
+                path="M357 160H568"
+                repeatCount="indefinite"
+              />
+            </circle>
+            <circle className="split-dot" r="4.5">
+              <animateMotion
+                begin="1.15s"
+                dur="3.1s"
+                path="M357 160C426 160 420 260 503 260H568"
+                repeatCount="indefinite"
+              />
+            </circle>
+          </g>
         </svg>
         <div className="split-destinations">
-          {[
-            { name: "Merchant", amount: 80, icon: Store },
-            { name: "Affiliate", amount: 15, icon: Users },
-            { name: "Treasury", amount: 5, icon: Landmark },
-          ].map(({ name, amount, icon: Icon }) => (
+          {destinations.map(({ name, amount }) => (
             <div className="split-recipient" key={name}>
-              <Icon size={16} />
               <span>{name}</span>
               <strong>
                 {amount}
                 <small> USDC</small>
               </strong>
-              <Check size={12} />
             </div>
           ))}
         </div>
       </div>
       <button className="split-replay" onClick={() => setReplay(replay + 1)}>
-        <GitBranch size={13} /> One instruction. Every destination.{" "}
+        <GitBranch size={13} /> Restart the payment flow{" "}
         <ArrowRight size={13} />
       </button>
     </div>

@@ -2594,3 +2594,166 @@ h2 span {
     top: -14px;
   }
 }
+/* Split payments routing visual */
+.split-visual {
+  position: relative;
+  padding-top: 8px;
+  background: radial-gradient(ellipse at 48% 50%, #e4e9f5 0%, transparent 67%);
+}
+
+.split-flow {
+  height: 320px;
+}
+
+.split-input {
+  top: 132px;
+  left: 0;
+  width: 118px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 0;
+  background: transparent;
+}
+
+.split-input > span:first-child {
+  color: #7c89a4;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 1.35px;
+}
+
+.split-input > strong {
+  color: #2f3b52;
+  font-size: 29px;
+  letter-spacing: -1.1px;
+}
+
+.split-input small {
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.split-hub {
+  top: 125px;
+  left: calc(44.7% - 35px);
+  width: 70px;
+  height: 70px;
+  border-radius: 16px;
+  color: #596b98;
+  box-shadow: 0 12px 28px #6675a51a;
+}
+
+.split-hub .brand-mark {
+  width: 34px;
+  height: 36px;
+}
+
+.split-lines {
+  color: #c0c9df;
+}
+
+.split-motion {
+  color: #6f81b8;
+}
+
+.split-dot {
+  filter: drop-shadow(0 2px 3px #687ab52e);
+}
+
+.split-destinations {
+  top: 24px;
+  right: 0;
+  bottom: 24px;
+  width: 36%;
+}
+
+.split-recipient {
+  min-height: 74px;
+  padding: 17px 18px;
+  border-color: #dfe4ee;
+  border-radius: 11px;
+  box-shadow: 0 7px 18px #60709a0b;
+  color: #707c93;
+  font-size: 12px;
+}
+
+.split-recipient > strong {
+  color: #33425f;
+  font-size: 20px;
+  letter-spacing: -0.6px;
+}
+
+.split-recipient small {
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.split-replay {
+  margin-top: 4px;
+  color: #71809b;
+}
+
+@media (max-width: 540px) {
+  .split-flow {
+    height: 270px;
+  }
+
+  .split-input {
+    top: 113px;
+    left: 0;
+    width: 80px;
+    gap: 7px;
+  }
+
+  .split-input > span:first-child {
+    font-size: 6px;
+    letter-spacing: 0.9px;
+  }
+
+  .split-input > strong {
+    font-size: 21px;
+  }
+
+  .split-input small {
+    font-size: 7px;
+  }
+
+  .split-hub {
+    top: 108px;
+    left: calc(44.7% - 27px);
+    width: 54px;
+    height: 54px;
+    border-radius: 12px;
+  }
+
+  .split-hub .brand-mark {
+    width: 27px;
+    height: 29px;
+  }
+
+  .split-destinations {
+    top: 22px;
+    bottom: 22px;
+    width: 42%;
+  }
+
+  .split-recipient {
+    min-height: 58px;
+    padding: 11px 10px;
+    font-size: 9px;
+  }
+
+  .split-recipient > strong {
+    font-size: 13px;
+  }
+
+  .split-recipient small {
+    font-size: 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split-motion {
+    display: none;
+  }
+}

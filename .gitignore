@@ -43,3 +43,5 @@ next-env.d.ts
 # local browser verification
 /.playwright-cli/
 /output/playwright/
+
+.firecrawl/

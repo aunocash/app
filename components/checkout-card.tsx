@@ -15,7 +15,7 @@ import {
   readRecords,
   saveRecord,
 } from "@/lib/payments";
-import { Logo, SolanaMark } from "./site-shell";
+import { Logo, SolanaMark, UsdcMark } from "./site-shell";
 const stages = [
   "Awaiting signature",
   "Submitted",
@@ -125,13 +125,7 @@ export function CheckoutCard({
                   disabled={stage >= 0}
                   onClick={() => setAsset(a)}
                 >
-                  {a === "SOL" ? (
-                    <SolanaMark />
-                  ) : (
-                    <span className="usdc-mini" style={{ color: "#7e91b0" }}>
-                      $
-                    </span>
-                  )}
+                  {a === "SOL" ? <SolanaMark /> : <UsdcMark />}
                   {a}
                 </button>
               ))}

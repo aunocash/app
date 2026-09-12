@@ -374,11 +374,11 @@ svg {
   box-shadow:
     0 18px 50px #5a668f14,
     0 2px 5px #4b537909;
-  transform: rotate(-3deg);
+  transform: none;
   transition: transform 0.5s;
 }
 .payment-card:hover {
-  transform: rotate(0);
+  transform: translateY(-3px);
 }
 .payment-card-header {
   display: flex;
@@ -546,7 +546,7 @@ svg {
 .source-tag {
   top: 18px;
   left: 0;
-  transform: rotate(-4deg);
+  transform: none;
 }
 .source-tag .mini-dot {
   margin-left: 12px;
@@ -565,7 +565,7 @@ svg {
 .settled-tag {
   bottom: 48px;
   right: -15px;
-  transform: rotate(4deg);
+  transform: none;
   animation-delay: -3s;
 }
 .route-check {
@@ -708,7 +708,7 @@ h2 span {
   border-radius: 10px 10px 0 0;
   background: #fff;
   box-shadow: 0 5px 25px #3b49660a;
-  transform: rotate(-3deg);
+  transform: none;
   width: 92%;
 }
 .link-preview > div:first-child {
@@ -769,7 +769,7 @@ h2 span {
   border: 1px solid white;
   border-radius: 10px;
   padding: 13px;
-  transform: rotate(3deg);
+  transform: none;
   box-shadow: 0 5px 25px #3b496608;
 }
 .asset-choice {
@@ -2756,4 +2756,44 @@ h2 span {
   .split-motion {
     display: none;
   }
+}
+/* Official network asset marks */
+.asset-mark {
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.solana-mark {
+  width: 17px;
+  height: 15px;
+  transform: none;
+}
+
+.usdc-mark {
+  width: 18px;
+  height: 18px;
+}
+
+.network-label .solana-mark {
+  width: 10px;
+  height: 9px;
+}
+
+.payment-button .usdc-mark {
+  width: 16px;
+  height: 16px;
+}
+
+.asset-choice > .solana-mark,
+.asset-choice > .usdc-mark {
+  width: 26px;
+  height: 26px;
+  margin-inline: 4px;
+}
+
+.asset-tabs .solana-mark,
+.asset-tabs .usdc-mark {
+  width: 18px;
+  height: 18px;
 }

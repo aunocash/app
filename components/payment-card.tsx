@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, LockKeyhole, ShieldCheck } from "lucide-react";
-import { Logo, SolanaMark } from "./site-shell";
+import { Logo, SolanaMark, UsdcMark } from "./site-shell";
 export function PaymentCard() {
   return (
     <div className="payment-card">
@@ -30,8 +30,7 @@ export function PaymentCard() {
           </span>
         </div>
         <Link href="/pay/demo" className="button primary payment-button">
-          <span className="usdc-mini">$</span> Pay with USDC{" "}
-          <ArrowUpRight size={15} />
+          <UsdcMark /> Pay with USDC <ArrowUpRight size={15} />
         </Link>
         <div className="payment-security">
           <LockKeyhole size={11} /> Explore a demo · No funds moved

@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowUpRight, Menu, X } from "lucide-react";
@@ -28,11 +29,27 @@ export function Logo({ markOnly = false }: { markOnly?: boolean }) {
 }
 export function SolanaMark() {
   return (
-    <span className="solana-mark" aria-hidden="true">
-      <i />
-      <i />
-      <i />
-    </span>
+    <Image
+      className="asset-mark solana-mark"
+      src="/assets/solana-mark.svg"
+      alt=""
+      width={101}
+      height={88}
+      aria-hidden="true"
+    />
+  );
+}
+
+export function UsdcMark() {
+  return (
+    <Image
+      className="asset-mark usdc-mark"
+      src="/assets/usdc-token.svg"
+      alt=""
+      width={96}
+      height={96}
+      aria-hidden="true"
+    />
   );
 }
 export function Navbar() {

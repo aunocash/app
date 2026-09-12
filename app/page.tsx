@@ -14,7 +14,13 @@ import {
   Timer,
   Zap,
 } from "lucide-react";
-import { Navbar, Footer, Logo, SolanaMark } from "@/components/site-shell";
+import {
+  Navbar,
+  Footer,
+  Logo,
+  SolanaMark,
+  UsdcMark,
+} from "@/components/site-shell";
 import { FlowField, SplitPaymentVisualizer } from "@/components/flow-field";
 import { PaymentCard } from "@/components/payment-card";
 import { DeveloperCodeBlock, Roadmap } from "@/components/content";
@@ -191,7 +197,7 @@ export default function Home() {
               </Link>
               <div className="checkout-preview">
                 <div className="asset-choice">
-                  <span className="currency-circle">$</span>
+                  <UsdcMark />
                   <span>
                     USD Coin<small>USDC on Solana</small>
                   </span>

@@ -5,11 +5,14 @@ const read = (file) => fs.readFileSync(new URL(file, import.meta.url), "utf8");
 const packageJson = JSON.parse(read("../package.json"));
 const layout = read("../app/layout.tsx");
 const paymentUi = read("../app/payment-ui.tsx");
+const productUi = read("../app/ui.tsx");
+const content = read("../app/content.tsx");
 const styles = read("../app/globals.css");
 const routeError = read("../app/error.tsx");
 const globalError = read("../app/global-error.tsx");
 
 assert.ok(packageJson.dependencies["@web3icons/react"]);
+assert.ok(packageJson.dependencies["react-icons"]);
 assert.match(layout, /<Toaster\b/);
 assert.match(paymentUi, /WalletIcon/);
 assert.match(paymentUi, /variant="branded"/);
@@ -40,3 +43,8 @@ assert.match(routeError, /toast\.error/);
 assert.match(globalError, /toast\.error/);
 assert.doesNotMatch(routeError, /error\.message/);
 assert.doesNotMatch(globalError, /error\.message/);
+
+for (const source of [productUi, paymentUi, content]) {
+  assert.match(source, /react-icons\/(fi|si)/);
+  assert.doesNotMatch(source, /[↗→↓≋◇⌘⌄▣⑂☷↻↳×]/);
+}

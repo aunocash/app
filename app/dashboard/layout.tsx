@@ -1,31 +1,11 @@
-import { Navbar, Footer } from "@/components/site-shell";
-import { DashboardNav } from "@/components/dashboard-nav";
 import { Info } from "lucide-react";
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      <Navbar />
-      <main id="main-content" className="container page-main">
-        <div className="page-intro">
-          <div className="eyebrow">YOUR PAYMENTS. YOUR RULES.</div>
-          <h1>Your payment workspace.</h1>
-          <p>Create a request, share a link, and follow the flow.</p>
-        </div>
-        <div className="notice">
-          <Info size={16} />
-          <span>
-            Product preview. Requests and history are stored in this browser.
-            Checkout is simulated; real Solana settlement is not connected.
-          </span>
-        </div>
-        <DashboardNav />
-        {children}
-      </main>
-      <Footer />
-    </>
-  );
+
+import { DashboardAuthGate } from "@/components/dashboard-auth-gate";
+import { DashboardNav } from "@/components/dashboard-nav";
+import { ProductQueryProvider } from "@/components/product-query-provider";
+import { Footer, Navbar } from "@/components/site-shell";
+import { WalletProvider } from "@/components/wallet-provider";
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return <><Navbar /><ProductQueryProvider><WalletProvider><main id="main-content" className="container page-main"><div className="page-intro"><div className="eyebrow">YOUR PAYMENTS. YOUR RULES.</div><h1>Your payment workspace.</h1><p>Create a request, share a link, and follow verified settlement.</p></div><div className="notice"><Info size={16} /><span>Devnet only. Payments settle directly from the payer wallet and are verified after Solana finalization.</span></div><DashboardAuthGate><DashboardNav />{children}</DashboardAuthGate></main></WalletProvider></ProductQueryProvider><Footer /></>;
 }

@@ -1,12 +1,12 @@
-import Link from "next/link";
+import { LiveDemoButton } from "./live-demo-button";
 import { ArrowUpRight, LockKeyhole, ShieldCheck } from "lucide-react";
-import { Logo, SolanaMark, UsdcMark } from "./site-shell";
+import { Logo, SolanaMark } from "./site-shell";
 export function PaymentCard() {
   return (
     <div className="payment-card">
       <div className="payment-card-header">
         <Logo />
-        <span className="preview-badge">DEMO PREVIEW</span>
+        <span className="preview-badge">LIVE DEVNET</span>
       </div>
       <div className="payment-card-body">
         <span className="payment-service-icon">
@@ -15,9 +15,9 @@ export function PaymentCard() {
           <span />
           <span />
         </span>
-        <p>Website Development</p>
+        <p>AUNO Devnet Checkout</p>
         <div className="payment-amount">
-          100<span>.00</span> <small>USDC</small>
+          0<span>.001</span> <small>SOL</small>
         </div>
         <span className="network-label">
           <SolanaMark /> on Solana
@@ -26,14 +26,14 @@ export function PaymentCard() {
           <span>Recipient</span>
           <span>
             <span className="recipient-avatar" />
-            8Ks...91Q <ArrowUpRight size={12} />
+            Devnet wallet <ArrowUpRight size={12} />
           </span>
         </div>
-        <Link href="/pay/demo" className="button primary payment-button">
-          <UsdcMark /> Pay with USDC <ArrowUpRight size={15} />
-        </Link>
+        <LiveDemoButton className="button primary payment-button">
+          <SolanaMark /> Start 0.001 SOL sample <ArrowUpRight size={15} />
+        </LiveDemoButton>
         <div className="payment-security">
-          <LockKeyhole size={11} /> Explore a demo · No funds moved
+          <LockKeyhole size={11} /> Launch a live devnet sample
         </div>
       </div>
       <div className="payment-card-footer">

@@ -1,5 +1,3 @@
-import { PaymentHistory } from "@/components/payment-history";
+import { PaymentWorkspace } from "@/components/payment-workspace";
 export const metadata = { title: "Payment history" };
-export default function Payments() {
-  return <PaymentHistory />;
-}
+export default function Payments() { return <PaymentWorkspace />; }

@@ -23,6 +23,7 @@ import {
 } from "@/components/site-shell";
 import { FlowField, SplitPaymentVisualizer } from "@/components/flow-field";
 import { PaymentCard } from "@/components/payment-card";
+import { LiveDemoButton } from "@/components/live-demo-button";
 import { DeveloperCodeBlock, Roadmap } from "@/components/content";
 export default function Home() {
   return (
@@ -170,8 +171,8 @@ export default function Home() {
                 </div>
                 <div className="preview-url">
                   <Link2 size={14} />
-                  <span>auno.cash/pay/demo</span>
-                  <Link href="/pay/demo" aria-label="Open demo payment">
+                  <span>auno.cash/pay/live</span>
+                  <Link href="/pay/demo" aria-label="Open live devnet checkout">
                     <ArrowUpRight size={17} />
                   </Link>
                 </div>
@@ -192,9 +193,9 @@ export default function Home() {
                 <br />
                 Accept SOL and USDC, wallet to wallet.
               </p>
-              <Link className="inline-link" href="/pay/demo">
-                Try the demo checkout <ArrowUpRight size={16} />
-              </Link>
+              <LiveDemoButton className="inline-link">
+                Try a live devnet checkout <ArrowUpRight size={16} />
+              </LiveDemoButton>
               <div className="checkout-preview">
                 <div className="asset-choice">
                   <UsdcMark />
@@ -272,7 +273,7 @@ export default function Home() {
             ))}
           </div>
           <p className="fine-print">
-            Explore the full flow in demo mode. No real funds are moved.
+            Try the live devnet sample. It requests 0.001 SOL only after wallet approval.
           </p>
         </section>
         <section className="developer-section">
@@ -317,13 +318,13 @@ export default function Home() {
                 icon: Link2,
                 title: "Payment links",
                 desc: "Create shareable payment requests.",
-                status: "Demo",
+                status: "Live devnet",
               },
               {
                 icon: CreditCard,
                 title: "Checkout",
                 desc: "Explore SOL and USDC checkout.",
-                status: "Demo",
+                status: "Live devnet",
               },
               {
                 icon: GitBranch,

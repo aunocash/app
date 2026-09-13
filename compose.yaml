@@ -1,0 +1,78 @@
+name: auno
+
+services:
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-auno}
+      POSTGRES_USER: ${POSTGRES_USER:-auno}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-auno}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - auno-postgres:/var/lib/postgresql/data
+
+  migrate:
+    build:
+      context: .
+      target: worker
+    restart: "no"
+    environment: &runtime-environment
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      DATABASE_URL: postgres://${POSTGRES_USER:-auno}:${POSTGRES_PASSWORD:-auno}@database:5432/${POSTGRES_DB:-auno}
+      SOLANA_NETWORK: ${SOLANA_NETWORK:-devnet}
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      USDC_MINT: ${USDC_MINT:-}
+      ENABLE_MAINNET: ${ENABLE_MAINNET:-false}
+      WORKER_POLL_MS: ${WORKER_POLL_MS:-2000}
+      WORKER_BATCH_SIZE: ${WORKER_BATCH_SIZE:-10}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-604800}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+    depends_on:
+      database:
+        condition: service_healthy
+    command: ["npm", "run", "db:migrate"]
+
+  web:
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    environment:
+      <<: *runtime-environment
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${PORT:-3000}:3000"
+
+  worker:
+    build:
+      context: .
+      target: worker
+    restart: unless-stopped
+    environment:
+      <<: *runtime-environment
+      NODE_ENV: production
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      web:
+        condition: service_healthy
+
+volumes:
+  auno-postgres:

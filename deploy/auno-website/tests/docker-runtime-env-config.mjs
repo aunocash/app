@@ -8,3 +8,8 @@ assert.match(
   /\/app\/dist\/server\/\.dev\.vars/,
   "Wrangler must receive runtime variables next to dist/server/wrangler.json.",
 );
+assert.match(
+  entrypoint,
+  /exec node \.\/scripts\/coolify-runtime\.mjs/,
+  "The container must start the split runtime instead of exposing Wrangler directly.",
+);

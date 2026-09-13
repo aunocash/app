@@ -27,6 +27,9 @@ SOLANA_RPC_URL=https://your-dedicated-devnet-rpc.example
 
 Do not commit the RPC value if it contains credentials. The entrypoint writes these values to an ignored, runtime-only `.dev.vars` file.
 
+## Internal runtime routing
+
+Coolify connects only to port `3000`. The runtime forwards `/api` and `/api/*` to the Wrangler Worker on `127.0.0.1:8787`; all other requests, including pages and static assets, go to Vinext on `127.0.0.1:3001`. Do not create domains or expose ports for either internal service.
 ## Persistence and limitations
 
 The Compose volume `auno-website-d1` stores Wrangler's local D1 state. Keep one replica and configure volume backups before using the preview with real users. This is a Devnet developer preview, not a production Cloudflare D1 deployment. Mainnet is intentionally rejected by the entrypoint.

@@ -25,11 +25,4 @@ if [ ! -f /app/.wrangler/state/.auno-migration-0000-applied ]; then
   touch /app/.wrangler/state/.auno-migration-0000-applied
 fi
 
-exec node --import ./scripts/sites-env.mjs \
-  ./node_modules/wrangler/bin/wrangler.js dev \
-  --config dist/server/wrangler.json \
-  --local \
-  --persist-to /app/.wrangler/state \
-  --ip 0.0.0.0 \
-  --port "${PORT:-3000}" \
-  --inspector-port 0
+exec node ./scripts/coolify-runtime.mjs

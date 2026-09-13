@@ -13,7 +13,12 @@ const globalError = read("../app/global-error.tsx");
 
 assert.ok(packageJson.dependencies["@web3icons/react"]);
 assert.ok(packageJson.dependencies["react-icons"]);
+assert.equal(packageJson.dependencies["next-themes"], undefined);
 assert.match(layout, /<Toaster\b/);
+assert.match(layout, /className="light"/);
+assert.match(layout, /auno-logo\.png/);
+assert.match(styles, /color-scheme:light/);
+assert.equal(fs.existsSync(new URL("../public/favicon.svg", import.meta.url)), false);
 assert.match(paymentUi, /WalletIcon/);
 assert.match(paymentUi, /variant="branded"/);
 assert.match(paymentUi, /fallback=\{/);

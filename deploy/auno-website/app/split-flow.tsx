@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
-
 const recipients = [
   { amount: '80', role: 'Merchant', color: '#526ea9', route: 'M300 204 C300 254 100 242 100 306' },
   { amount: '15', role: 'Affiliate', color: '#8874ad', route: 'M300 204 L300 306' },
@@ -9,44 +7,14 @@ const recipients = [
 ];
 
 export function SplitFlow() {
-  const container = useRef<HTMLElement>(null);
-  const svg = useRef<SVGSVGElement>(null);
-  const [paused, setPaused] = useState(false);
-  const [visible, setVisible] = useState(false);
-  const [replay, setReplay] = useState(0);
-
-  useEffect(() => {
-    const node = container.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.15 });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => {
-      const stopped = paused || !visible || document.hidden || motion.matches;
-      if (stopped) svg.current?.pauseAnimations();
-      else svg.current?.unpauseAnimations();
-      container.current?.setAttribute('data-stopped', String(stopped));
-    };
-    update();
-    motion.addEventListener('change', update);
-    document.addEventListener('visibilitychange', update);
-    return () => {
-      motion.removeEventListener('change', update);
-      document.removeEventListener('visibilitychange', update);
-    };
-  }, [paused, visible, replay]);
 
   return (
-    <figure ref={container} className="split-flow" aria-label="Illustration: one payment of 100 USDC enters AUNO and splits into 80 USDC for the merchant, 15 USDC for the affiliate, and 5 USDC for the treasury.">
+    <figure className="split-flow" aria-label="Illustration: one payment of 100 USDC enters AUNO and splits into 80 USDC for the merchant, 15 USDC for the affiliate, and 5 USDC for the treasury.">
       <div className="sf-heading"><span>ONE PAYMENT. THREE DESTINATIONS.</span><span className="badge">ANIMATED PREVIEW</span></div>
-      <div key={replay} className="sf-animation">
+      <div className="sf-animation">
         <div className="sf-routing">
           <div className="sf-source"><span className="sf-coin">$</span><div><small>Incoming payment</small><strong>100 <span>USDC</span></strong></div></div>
-          <svg ref={svg} className="sf-paths" viewBox="0 0 600 310" preserveAspectRatio="none" aria-hidden="true">
+          <svg className="sf-paths" viewBox="0 0 600 310" preserveAspectRatio="none" aria-hidden="true">
             <path className="sf-incoming-track" d="M300 82 L300 140" />
             {recipients.map(r => <path key={r.role} d={r.route} fill="none" stroke={r.color} strokeWidth="2.5" opacity=".5" />)}
             <g className="sf-incoming-packet" opacity="0">
@@ -67,7 +35,7 @@ export function SplitFlow() {
         <div className="sf-recipients">{recipients.map(r => <div key={r.role} className={'sf-recipient sf-'+r.role.toLowerCase()} style={{'--recipient-color':r.color} as React.CSSProperties}><span className="sf-recipient-role"><i/>{r.role}</span><strong>{r.amount}<span> USDC</span></strong><small>of the 100 USDC payment</small></div>)}</div>
         <div className="sf-summary"><span>80 + 15 + 5 USDC</span><strong>100 USDC allocated</strong></div>
       </div>
-      <figcaption className="sf-footer"><span>Illustrative flow · No funds moved</span><div className="sf-controls"><button type="button" onClick={()=>setPaused(!paused)} aria-pressed={paused}>{paused?'▶ Play':'Ⅱ Pause'}</button><button type="button" onClick={()=>{setReplay(replay+1);setPaused(false)}} aria-label="Replay split payment animation">↻ Replay</button></div></figcaption>
+      <figcaption className="sf-footer">Illustrative flow · No funds moved</figcaption>
     </figure>
   );
 }

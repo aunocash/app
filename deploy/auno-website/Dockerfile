@@ -23,6 +23,8 @@ WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000 \
     HOST=0.0.0.0 \
+    NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt \
+    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
     WRANGLER_SEND_METRICS=false \
     WRANGLER_WRITE_LOGS=false \
     SITES_RUNTIME_ROOT=/app/.sites-runtime
@@ -30,7 +32,11 @@ ENV NODE_ENV=production \
 COPY --from=build /app /app
 COPY docker-entrypoint.sh /usr/local/bin/auno-entrypoint
 
-RUN chmod +x /usr/local/bin/auno-entrypoint \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && update-ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && chmod +x /usr/local/bin/auno-entrypoint \
     && mkdir -p /app/.wrangler/state /app/.sites-runtime
 
 EXPOSE 3000

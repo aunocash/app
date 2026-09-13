@@ -1,10 +1,12 @@
-import { loadEnvConfig } from "@next/env";
+import { createRequire } from "node:module";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 import { loadServerEnv } from "../env";
 
+const require = createRequire(import.meta.url);
+const { loadEnvConfig } = require("@next/env") as typeof import("@next/env");
 loadEnvConfig(process.cwd());
 
 const env = loadServerEnv(process.env);

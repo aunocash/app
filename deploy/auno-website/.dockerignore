@@ -1,0 +1,12 @@
+node_modules
+dist
+.next
+.wrangler
+.sites-runtime
+.dev.vars
+.env*
+*.log
+.git
+tests
+README.md
+MULAI-DI-SINI.md

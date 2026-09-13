@@ -1,2 +1,2 @@
-import { Roadmap } from '../content';
+import { Roadmap } from '../roadmap-view';
 export default Roadmap;

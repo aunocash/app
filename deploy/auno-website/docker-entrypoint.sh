@@ -12,7 +12,7 @@ if [ "$SOLANA_NETWORK" != "devnet" ]; then
 fi
 
 umask 077
-printf 'SOLANA_NETWORK=%s\nSOLANA_RPC_URL=%s\n' "$SOLANA_NETWORK" "$SOLANA_RPC_URL" > /app/.dev.vars
+printf 'SOLANA_NETWORK=%s\nSOLANA_RPC_URL=%s\n' "$SOLANA_NETWORK" "$SOLANA_RPC_URL" > /app/dist/server/.dev.vars
 
 mkdir -p /app/.wrangler/state
 

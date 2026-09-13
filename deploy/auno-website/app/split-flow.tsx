@@ -10,7 +10,7 @@ export function SplitFlow() {
 
   return (
     <figure className="split-flow" aria-label="Illustration: one payment of 100 USDC enters AUNO and splits into 80 USDC for the merchant, 15 USDC for the affiliate, and 5 USDC for the treasury.">
-      <div className="sf-heading"><span>ONE PAYMENT. THREE DESTINATIONS.</span><span className="badge">ANIMATED PREVIEW</span></div>
+      <div className="sf-heading"><span>ONE PAYMENT. THREE DESTINATIONS.</span></div>
       <div className="sf-animation">
         <div className="sf-routing">
           <div className="sf-source"><span className="sf-coin">$</span><div><small>Incoming payment</small><strong>100 <span>USDC</span></strong></div></div>

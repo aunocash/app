@@ -1,9 +1,9 @@
 "use client";
 
 const recipients = [
-  { amount: '80', role: 'Merchant', color: '#526ea9', route: 'M300 204 C300 254 100 242 100 306' },
-  { amount: '15', role: 'Affiliate', color: '#8874ad', route: 'M300 204 L300 306' },
-  { amount: '5', role: 'Treasury', color: '#518998', route: 'M300 204 C300 254 500 242 500 306' },
+  { amount: '80', role: 'Merchant', color: '#fd6c03', route: 'M300 204 C300 254 100 242 100 306' },
+  { amount: '15', role: 'Affiliate', color: '#526ea9', route: 'M300 204 L300 306' },
+  { amount: '5', role: 'Treasury', color: '#8874ad', route: 'M300 204 C300 254 500 242 500 306' },
 ];
 
 export function SplitFlow() {
@@ -18,7 +18,7 @@ export function SplitFlow() {
             <path className="sf-incoming-track" d="M300 82 L300 140" />
             {recipients.map(r => <path key={r.role} d={r.route} fill="none" stroke={r.color} strokeWidth="2.5" opacity=".5" />)}
             <g className="sf-incoming-packet" opacity="0">
-              <circle r="11" fill="#dce5f7" /><circle r="5.5" fill="#506ca6" />
+              <circle r="11" fill="#ffdcc0" /><circle r="5.5" fill="#fd6c03" />
               <animateMotion path="M300 84 L300 140" dur="8s" keyPoints="0;0;1;1" keyTimes="0;.08;.29;1" calcMode="linear" repeatCount="indefinite" />
               <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;.07;.27;.30;1" dur="8s" repeatCount="indefinite" />
             </g>

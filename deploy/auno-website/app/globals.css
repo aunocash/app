@@ -267,195 +267,77 @@ footer{background:white}footer small,.footer-bottom{font-size:12px;color:#596b85
   .docs-portal-next>div{grid-template-columns:1fr}
 }
 
-/* AUNO orange identity: final cascade for the deployed homepage and shared portal surfaces. */
-:root {
-  --orange: #fd6c03;
-  --orange-hover: #e75e00;
-  --orange-ink: #a84300;
-  --orange-soft: #fff1e5;
-  --paper: #fffcf8;
-  --blue: var(--orange-ink);
-}
+/* AUNO orange identity, sampled from the owner's reference (#FD6C03). */
+:root{--orange:#fd6c03;--orange-hover:#e75e00;--orange-ink:#a84300;--orange-soft:#fff1e5;--paper:#fffcf8;--blue:var(--orange-ink)}
+:focus-visible{outline-color:var(--orange)}
+.brand-icon{color:var(--orange)}
+h1 em{color:#cf5200}
+.button{background:var(--orange);border-color:var(--orange);color:#222939;font-weight:600;box-shadow:0 4px 14px #fd6c0312}
+.button:hover{background:#ff812b;border-color:#ff812b;color:#222939;box-shadow:0 6px 20px #fd6c0320}
+.button.outline{background:transparent;border-color:#e1d9d1;color:var(--ink);box-shadow:none}
+.button.outline:hover{background:var(--orange-soft);border-color:#efad7b}
+.button.light{background:var(--orange);border-color:var(--orange);color:#222939}
+.text-link:hover,.nav nav>a:not(.button):hover{color:var(--orange-ink)}
+.line{background:var(--orange)}
+.eyebrow{color:#96502b}
+.w1{background:#ffdcc0;opacity:.6}.w2{background:#e1e6f2;opacity:.55}
+.hero-bottom>a{border-color:#edcfb8;color:#a65320}
+.invoice-icon{background:var(--orange-soft);border-color:#f3d3b9;color:#c15000}
+.badge{background:#fff5ec;border-color:#ecd8c5;color:#96502b}
+.payment-card{border-color:#fff8f2;box-shadow:0 22px 70px #62401e0e,0 2px 5px #303b5b05}
+.float-tag{border-color:#ffebd9}.settle-tag{border-color:#f1e0d2}.settle-tag>span{color:#e25b00}
+.network-strip .badge{background:var(--orange-soft)}
+.mock-input,input,select,textarea{border-color:#e2dfda}
+input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(--orange)}
+.checkout-band{background:#f8f1e9}
+.steps>div{border-color:#e7d2c0}.steps span{color:#b15417}
+.feature:hover{background:#fff3e8}.feature-icon{color:#d35908}
+.developer-section{background:#242e45}.developer-section .eyebrow{color:#ffa464}.developer-section .text-link:hover{color:#ffad74}
+.code-panel{border-color:#465169}.code-panel .badge{background:#3f342e;border-color:#77523b;color:#ffb17c}
+.code-panel pre{color:#e5d7cb}
+.token-label{color:#bd4f05}
+.final-cta{background:radial-gradient(ellipse at bottom,#ffdec2,transparent 70%)}
+.notice{background:#fff5eb;border-color:#efddcc;color:#795c45}.notice.error{background:#fff5f3;border-color:#f0d9d6;color:#a04b48}
+.status{color:#a64b0c}.docs-nav a:hover,.doc-section a{color:var(--orange-ink)}
+.doc-section pre{background:#f6eee6}
+.roadmap-item>span:first-child{color:#c66825}
+.split-flow{background:linear-gradient(150deg,#fffdfa,#fff4e9);border-color:#efd9c5;box-shadow:0 18px 55px #82481708}
+.sf-heading{color:#96613d}.sf-heading .badge{background:#fff5e9;border-color:#efcfb4;color:#a3531a}
+.sf-incoming-track{stroke:#ed8a43}
+.sf-source{border-color:#efc9aa;box-shadow:0 5px 20px #a2511009}
+.sf-coin{background:#fd6c03;border-color:#fd6c03;color:#fff}
+.sf-source small{color:#967052}.sf-source strong span{color:#956444}
+.sf-hub{border-color:#f1a66e;background:#ffead8;box-shadow:0 0 0 6px #fff7ee}
+.sf-hub-icon{color:#e56000}.sf-hub small{color:#99663f}
+.sf-percent{background:#fff6ed;color:#905a31}
+.sf-percent-affiliate{color:#526ea9}.sf-percent-treasury{color:#8874ad}
+.sf-recipient{border-color:#eadfd4;border-top-color:var(--recipient-color)}
+.sf-summary{border-color:#ebdacc}.sf-summary strong{color:#a14c0d}
+.sf-controls button{color:#9b5b2d}.sf-controls button:hover{background:#ffe7d1;border-color:#efbc94}
+@keyframes sf-hub-pulse{0%,26%,44%,100%{background:#ffead8;box-shadow:0 0 0 6px #fff7ee}32%,38%{background:#ffceaa;box-shadow:0 0 0 11px #fd6c0319}}
+@keyframes sf-arrival{0%,65%,96%,100%{background:#fff;box-shadow:0 0 0 transparent;transform:translateY(0)}73%,87%{background:#fff2e6;box-shadow:0 4px 20px #e7781f19;transform:translateY(-3px)}}
 
-body {
-  background: var(--paper);
-  color: var(--ink);
-}
+.text-link{color:var(--orange-ink)}.nav{background:rgba(255,252,248,.96)}.split-feature .eyebrow,.split-feature .text-link{color:#ffb078}
 
-:focus-visible {
-  outline-color: var(--orange);
-}
-
-.nav {
-  background: rgba(255, 252, 248, 0.96);
-}
-
-.nav nav > a:not(.button):hover,
-.text-link,
-.text-link:hover {
-  color: var(--orange-ink);
-}
-
-.button {
-  background: var(--orange);
-  border-color: var(--orange);
-  color: #202a43;
-  box-shadow: 0 8px 20px #fd6c0324;
-}
-
-.button:hover {
-  background: var(--orange-hover);
-  border-color: var(--orange-hover);
-  color: #202a43;
-  box-shadow: 0 10px 24px #fd6c0333;
-}
-
-.button.light {
-  background: var(--orange-soft);
-  border-color: var(--orange-soft);
-  color: var(--orange-ink);
-}
-
-.button.outline {
-  background: transparent;
-  border-color: #e2e8f0;
-  color: var(--ink);
-}
-
-h1 em {
-  color: var(--orange-ink);
-}
-
-.eyebrow {
-  color: #96502b;
-}
-
-.line {
-  background: var(--orange);
-}
-
-.w1 {
-  background: #ffd8bd;
-}
-
-.w2 {
-  background: #e5e8f2;
-}
-
-.payment-card {
-  border-color: #fff8f2;
-  box-shadow: 0 22px 70px #b96d3b18, 0 2px 5px #303b5b05;
-}
-
-.badge {
-  border-color: #f1d5bd;
-  color: var(--orange-ink);
-  background: var(--orange-soft);
-}
-
-.invoice-icon {
-  background: var(--orange-soft);
-  border-color: #f1d5bd;
-  color: var(--orange-ink);
-}
-
-.card-detail {
-  border-top-color: #f1e8e1;
-}
-
-.payment-card .button,
-.docs-portal-hero-actions .button {
-  background: var(--orange);
-  border-color: var(--orange);
-}
-
-.settle-tag {
-  border-color: #f1e8e1;
-  box-shadow: 0 10px 35px #b96d3b12;
-}
-
-.settle-tag > span {
-  color: var(--orange-ink);
-}
-
-.hero-bottom > a {
-  border-color: #efddcc;
-  color: var(--orange-ink);
-}
-
-.checkout-band {
-  background: #fff6ee;
-  border-block-color: #efddcc;
-}
-
-.steps > div {
-  border-top-color: #edc9ad;
-}
-
-.steps span,
-.feature-icon {
-  color: var(--orange-ink);
-}
-
-.feature:hover {
-  background: var(--orange-soft);
-  border-color: #efc7a8;
-}
-
-.developer-section {
-  background: var(--navy);
-}
-
-.developer-section .text-link,
-.split-feature .text-link {
-  color: #ffc39e;
-}
-
-.final-cta {
-  background: radial-gradient(ellipse at bottom, #ffdec2, transparent 65%);
-}
-
-.roadmap-flow-step-active,
-.roadmap-legend-dot-active {
-  border-color: var(--orange);
-}
-
-.roadmap-legend-dot-active,
-.roadmap-rail span,
-.roadmap-node-developer-preview .roadmap-node-index {
-  background: var(--orange);
-}
-
-.roadmap-flow-step-active {
-  box-shadow: 0 0 0 3px #fd6c031c;
-}
-
-.roadmap-note > svg,
-.roadmap-flow-arrow,
-.roadmap-capabilities svg {
-  color: var(--orange-ink);
-}
-
-.roadmap-status-developer-preview {
-  border-color: #f0b98f;
-  background: var(--orange-soft);
-  color: var(--orange-ink);
-}
-
-.wallet-option:hover:not(:disabled),
-.wallet-option:focus-visible {
-  border-color: var(--orange);
-}
-
-.wallet-option:hover:not(:disabled) {
-  background: var(--orange-soft);
-}
-
-.wallet-option:focus-visible {
-  outline-color: var(--orange);
-}
-
-.wallet-icon-fallback {
-  background: var(--orange-soft);
-  color: var(--orange-ink);
-}
+/* Original supplied logo and official product roadmap. */
+.brand-logo,.mini-brand img,.sf-hub-logo{mix-blend-mode:normal;border-radius:9px}
+.official-roadmap{max-width:1120px}
+.roadmap-intro{max-width:850px;padding-bottom:48px}
+.roadmap-intro h1{font-size:clamp(36px,5.5vw,66px);line-height:1.1;max-width:800px}
+.roadmap-intro .lead{max-width:780px}
+.roadmap-principle{border-left:3px solid var(--orange);padding-left:16px;color:#8d4a1a;font-size:15px;margin-top:28px}
+.official-phases{list-style:none;margin:0;padding:0}
+.official-phase{display:grid;grid-template-columns:64px minmax(0,1fr);gap:24px;padding:34px 0;border-top:1px solid #e7dace;position:relative}
+.phase-number{font-size:20px;font-variant-numeric:tabular-nums;color:var(--orange-ink);padding-top:6px}
+.phase-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.phase-heading h2{font-size:28px;line-height:1.2;margin:0}
+.phase-status{white-space:nowrap;font-size:10px;letter-spacing:.055em}
+.status-01,.status-02{background:#ffe5cf;border-color:#f5bd91;color:#984000}
+.official-phase p{color:#59677d;font-size:16px;line-height:1.8;margin:18px 0}
+.phase-features{display:flex;flex-wrap:wrap;gap:8px}
+.phase-features span{font-size:12px;padding:7px 10px;background:#f4eee7;border-radius:6px;color:#6e5948}
+.automation-examples{background:#242e45;color:#fff;border-radius:20px;padding:38px;margin-top:36px}
+.automation-examples .eyebrow{color:#ffa66c}.automation-examples h2{font-size:30px}
+.automation-examples ul{list-style:none;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:18px;font-size:16px}
+.automation-examples li span{color:#ff994e;margin:0 6px}.automation-examples p{color:#c1cbdc;line-height:1.7}
+@media(max-width:700px){.official-phase{grid-template-columns:30px minmax(0,1fr);gap:12px;padding:28px 0}.phase-heading h2{font-size:24px}.phase-number{font-size:16px}.automation-examples{padding:25px}.automation-examples ul{grid-template-columns:1fr}.roadmap-intro{padding-bottom:28px}}

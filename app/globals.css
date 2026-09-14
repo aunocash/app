@@ -2910,3 +2910,293 @@ h2 span {
     @apply font-sans;
   }
 }
+
+/* AUNO orange identity: keep the existing layout while aligning the app with the ZIP theme. */
+:root {
+  --auno-orange: #fd6c03;
+  --auno-orange-hover: #e75e00;
+  --auno-orange-ink: #a84300;
+  --auno-orange-soft: #fff1e5;
+  --auno-paper: #fffcf8;
+  --auno-navy: #202a43;
+  --auno-line: #eadfd5;
+  --muted: #59677d;
+  --line: #e2e8f0;
+  --accent: var(--auno-orange-soft);
+  --secondary: #f1f3f8;
+  --secondary-foreground: #33405a;
+  --muted-foreground: #68758a;
+  --accent-foreground: var(--auno-orange-ink);
+  --background: var(--auno-paper);
+  --foreground: var(--auno-navy);
+  --navy: var(--auno-navy);
+  --primary: var(--auno-orange);
+  --primary-foreground: #202a43;
+  --border: var(--auno-line);
+  --input: #e6d8cc;
+  --ring: var(--auno-orange);
+}
+
+body {
+  background: var(--auno-paper);
+  color: var(--auno-navy);
+}
+
+html {
+  scrollbar-color: #e39b6d transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: #e39b6d;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: var(--auno-orange);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline-color: var(--auno-orange);
+}
+
+::selection {
+  background: #ffd8bd;
+}
+
+.site-header {
+  background: rgba(255, 252, 248, 0.94);
+  border-bottom-color: rgba(234, 223, 213, 0.82);
+}
+
+.main-nav {
+  color: #59677d;
+}
+
+.main-nav a:hover,
+.footer-links a:hover {
+  color: var(--auno-orange-ink);
+}
+
+.primary,
+.nav-cta,
+.payment-button {
+  background: var(--auno-orange);
+  border-color: var(--auno-orange);
+  color: #202a43;
+  box-shadow: 0 8px 20px #fd6c0324;
+}
+
+.primary:hover,
+.nav-cta:hover,
+.payment-button:hover {
+  background: var(--auno-orange-hover);
+  border-color: var(--auno-orange-hover);
+  color: #202a43;
+  box-shadow: 0 10px 24px #fd6c0333;
+}
+
+.text-button:hover {
+  background: var(--auno-orange-soft);
+  color: var(--auno-orange-ink);
+}
+
+.eyebrow {
+  color: #96502b;
+}
+
+.status-dot,
+.mini-dot {
+  background: var(--auno-orange);
+  box-shadow: 0 0 0 3px var(--auno-orange-soft);
+}
+
+.hero h1 span {
+  color: var(--auno-orange-ink);
+}
+
+.ambient-one {
+  background: #ffd8bd;
+}
+
+.ambient-two {
+  background: #e5e8f2;
+}
+
+.payment-card {
+  border-color: #fff8f2;
+  box-shadow:
+    0 18px 50px #b96d3b18,
+    0 2px 5px #4b537909;
+}
+
+.payment-card-header {
+  border-bottom-color: #f2e8df;
+}
+
+.preview-badge {
+  color: var(--auno-orange-ink);
+  background: var(--auno-orange-soft);
+  border-color: #f1d5bd;
+}
+
+.payment-service-icon {
+  background: var(--auno-orange-soft);
+  border-color: #f1d5bd;
+}
+
+.payment-service-icon > span {
+  border-color: #c45b18;
+}
+
+.payment-card-body > p,
+.network-label,
+.payment-security {
+  color: #68758a;
+}
+
+.recipient-line,
+.payment-card-footer {
+  border-color: #f1e8e1;
+}
+
+.payment-button > svg,
+.feature-row > svg,
+.panel-icon,
+.ecosystem-symbol {
+  color: var(--auno-orange-ink);
+}
+
+.product-panel {
+  background: #fff6ee;
+  border-color: #efddcc;
+}
+
+.checkout-panel {
+  background: #f8f1e9;
+}
+
+.panel-icon,
+.ecosystem-symbol {
+  background: var(--auno-orange-soft);
+  border-color: #f1d5bd;
+}
+
+.inline-link {
+  color: var(--auno-orange-ink);
+}
+
+.inline-link:hover {
+  color: var(--auno-orange-hover);
+}
+
+.link-preview,
+.checkout-preview {
+  border-color: #fff8f2;
+  box-shadow: 0 5px 25px #b96d3b12;
+}
+
+.mini-logo {
+  background: var(--auno-orange-soft);
+}
+
+.mini-logo .brand-mark {
+  color: var(--auno-orange-ink);
+}
+
+.preview-url,
+.asset-choice {
+  background: #fffaf6;
+  border-color: #eadfd5;
+}
+
+.currency-circle {
+  border-color: #efc7a8;
+  background: var(--auno-orange-soft);
+  color: var(--auno-orange-ink);
+}
+
+.selected-dot {
+  background: var(--auno-orange);
+  border-color: var(--auno-orange);
+}
+
+.split-visual {
+  background: radial-gradient(ellipse at 55% 45%, #ffe7d3, transparent 70%);
+}
+
+.split-input {
+  background: var(--auno-paper);
+}
+
+.split-hub,
+.split-recipient {
+  border-color: #efddcc;
+  box-shadow: 0 6px 15px #b96d3b14;
+}
+
+.split-hub,
+.split-recipient > svg {
+  color: var(--auno-orange-ink);
+}
+
+.soft-label {
+  background: var(--auno-orange-soft);
+  border-color: #f1d5bd;
+  color: var(--auno-orange-ink);
+}
+
+.step-number {
+  border-top-color: #e8d9cc;
+  color: var(--auno-orange-ink);
+}
+
+.step-number:after {
+  background: var(--auno-orange);
+}
+
+.developer-section {
+  background: var(--auno-navy);
+  border-block-color: #39445d;
+  color: #fff;
+}
+
+.developer-section p,
+.developer-section .eyebrow,
+.developer-section .fine-print {
+  color: #c7cfde;
+}
+
+.code-window {
+  background: #fffdfb;
+  border-color: #f0dfd0;
+  box-shadow: 0 12px 30px #101a3026;
+}
+
+.code-window-bar,
+.code-window-footer {
+  border-color: #f1e5dc;
+}
+
+.feature-row > svg {
+  color: #f07a2a;
+}
+
+.roadmap-phase {
+  border-top-color: #edc9ad;
+}
+
+.roadmap-phase li:before {
+  background: var(--auno-orange);
+}
+
+.final-cta {
+  background: radial-gradient(ellipse at bottom, #ffdec2, transparent 70%);
+}
+
+.final-orbit {
+  border-color: #efd9c5;
+  box-shadow: 0 0 80px 25px #fd6c031c;
+}

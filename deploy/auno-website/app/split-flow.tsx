@@ -32,7 +32,6 @@ export function SplitFlow() {
           <div className="sf-hub"><img className="sf-hub-logo" src="/auno-logo.png" alt="" width="34" height="34"/><span>AUNO</span><small>Split routing</small></div>
           <span className="sf-percent sf-percent-merchant">80%</span><span className="sf-percent sf-percent-affiliate">15%</span><span className="sf-percent sf-percent-treasury">5%</span>
         </div>
-        <div className="sf-recipients">{recipients.map(r => <div key={r.role} className={'sf-recipient sf-'+r.role.toLowerCase()} style={{'--recipient-color':r.color} as React.CSSProperties}><span className="sf-recipient-role"><i/>{r.role}</span><strong>{r.amount}<span> USDC</span></strong><small>of the 100 USDC payment</small></div>)}</div>
         <div className="sf-summary"><span>80 + 15 + 5 USDC</span><strong>100 USDC allocated</strong></div>
       </div>
       <figcaption className="sf-footer">Illustrative flow · No funds moved</figcaption>

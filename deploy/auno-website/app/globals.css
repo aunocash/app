@@ -341,3 +341,98 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
 .automation-examples ul{list-style:none;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:18px;font-size:16px}
 .automation-examples li span{color:#ff994e;margin:0 6px}.automation-examples p{color:#c1cbdc;line-height:1.7}
 @media(max-width:700px){.official-phase{grid-template-columns:30px minmax(0,1fr);gap:12px;padding:28px 0}.phase-heading h2{font-size:24px}.phase-number{font-size:16px}.automation-examples{padding:25px}.automation-examples ul{grid-template-columns:1fr}.roadmap-intro{padding-bottom:28px}}
+
+/* Motion polish: preserve layout while making existing icons and controls feel connected. */
+:root {
+  --motion-ui: 180ms cubic-bezier(.2, .8, .2, 1);
+  --motion-emphasis: 320ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.button,
+.text-link,
+.nav nav > a:not(.button),
+.app-tabs a,
+.docs-portal-search-trigger,
+.docs-portal-links a,
+.feature,
+.payment-card,
+.wallet-option,
+.roadmap-node-body,
+.roadmap-flow-step,
+.notice {
+  transition: color var(--motion-ui), background-color var(--motion-ui), border-color var(--motion-ui), box-shadow var(--motion-emphasis), transform var(--motion-emphasis);
+}
+
+.inline-icon,
+.button-icon,
+.feature-icon svg,
+.invoice-icon svg,
+.settle-tag > svg,
+.hero-bottom > a svg,
+.roadmap-flow-arrow,
+.roadmap-node-index svg,
+.roadmap-capabilities svg,
+.roadmap-proof-status svg,
+.roadmap-note > svg,
+.wallet-icon-fallback svg,
+.docs-portal-search-trigger svg,
+.docs-portal-launch svg,
+.docs-portal-next svg {
+  transition: color var(--motion-ui), opacity var(--motion-ui), transform var(--motion-ui);
+  transform-origin: center;
+}
+
+.text-link:hover .action-icon,
+.button:hover .action-icon,
+.button:hover .button-icon,
+.docs-portal-search-trigger:hover svg,
+.docs-portal-launch:hover svg,
+.docs-portal-next a:hover svg,
+.hero-bottom > a:hover svg {
+  transform: translateX(3px);
+}
+
+.feature:hover .feature-icon svg,
+.payment-card:hover .invoice-icon svg,
+.wallet-option:hover .wallet-icon-fallback svg,
+.roadmap-node-body:hover .roadmap-node-index svg {
+  transform: scale(1.08);
+}
+
+.feature:hover .feature-icon,
+.payment-card:hover .invoice-icon,
+.wallet-option:hover .wallet-icon-fallback,
+.roadmap-node-body:hover .roadmap-node-index {
+  color: var(--orange-ink);
+}
+
+.roadmap-flow-step:hover,
+.notice:hover {
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+
+  .button:hover,
+  .roadmap-flow-step:hover,
+  .notice:hover,
+  .feature:hover .feature-icon svg,
+  .payment-card:hover .invoice-icon svg,
+  .wallet-option:hover .wallet-icon-fallback svg,
+  .roadmap-node-body:hover .roadmap-node-index svg,
+  .text-link:hover .action-icon,
+  .button:hover .action-icon,
+  .button:hover .button-icon,
+  .docs-portal-search-trigger:hover svg,
+  .docs-portal-launch:hover svg,
+  .docs-portal-next a:hover svg,
+  .hero-bottom > a:hover svg {
+    transform: none !important;
+  }
+}

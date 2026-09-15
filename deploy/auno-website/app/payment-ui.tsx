@@ -2,7 +2,8 @@
 
 import { WalletIcon } from "@web3icons/react/dynamic";
 import { Wallet } from "lucide-react";
-import { FiArrowRight, FiArrowUpRight, FiExternalLink, FiX } from "react-icons/fi";
+import { FiArrowRight, FiArrowUpRight, FiClock, FiExternalLink, FiGitBranch, FiHelpCircle, FiPlusCircle, FiX } from "react-icons/fi";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Footer } from "./ui";
@@ -116,6 +117,14 @@ function WalletButton({ session, onChange }: { session: WalletSession | null; on
 }
 
 export function AppShell({ children, title, subtitle }: { children: React.ReactNode; title: string; subtitle: string }) {
+  const pathname = usePathname();
+  const tabs = [
+    { href: "/dashboard/create", label: "Create Payment", icon: FiPlusCircle },
+    { href: "/dashboard/payments", label: "Payment History", icon: FiClock },
+    { href: "/split", label: "Split Calculator", icon: FiGitBranch },
+    { href: "/docs", label: "Help", icon: FiHelpCircle },
+  ];
+
   return (
     <>
 
@@ -127,11 +136,11 @@ export function AppShell({ children, title, subtitle }: { children: React.ReactN
             <p>{subtitle}</p>
           </div>
         </div>
-        <nav className="app-tabs">
-          <a href="/dashboard/create">Create Payment</a>
-          <a href="/dashboard/payments">Payment History</a>
-          <a href="/split">Split Calculator</a>
-          <a href="/docs">Help</a>
+        <nav className="app-tabs" aria-label="Payment app navigation">
+          {tabs.map(({ href, label, icon: Icon }) => {
+            const active = pathname === href;
+            return <a href={href} className={active ? "active" : undefined} aria-current={active ? "page" : undefined} key={href}><Icon aria-hidden="true" /><span>{label}</span></a>;
+          })}
         </nav>
         {children}
       </main>

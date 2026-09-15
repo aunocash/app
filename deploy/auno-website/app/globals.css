@@ -436,3 +436,67 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
     transform: none !important;
   }
 }
+/* Payment app tabs: compact icon labels with a clear active state. */
+.app-tabs {
+  align-items: stretch;
+  gap: 8px;
+}
+
+.app-tabs a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 4px 12px;
+  border-bottom: 2px solid transparent;
+  color: #596b85;
+  transition: color var(--motion-ui), border-color var(--motion-ui), background-color var(--motion-ui);
+}
+
+.app-tabs a svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  transition: color var(--motion-ui), transform var(--motion-ui);
+}
+
+.app-tabs a:hover {
+  color: var(--orange-ink);
+}
+
+.app-tabs a:hover svg {
+  transform: translateY(-1px);
+}
+
+.app-tabs a.active {
+  color: var(--orange-ink);
+  border-bottom-color: var(--orange);
+  font-weight: 600;
+}
+
+.app-tabs a.active svg {
+  color: var(--orange);
+}
+
+.app-tabs a:focus-visible {
+  outline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+  .app-tabs {
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .app-tabs a {
+    flex: 0 0 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-tabs a:hover svg {
+    transform: none;
+  }
+}

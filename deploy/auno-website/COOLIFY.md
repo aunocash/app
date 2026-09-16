@@ -23,6 +23,7 @@ Set these in the `web` service environment section:
 ```env
 SOLANA_NETWORK=devnet
 SOLANA_RPC_URL=https://your-dedicated-devnet-rpc.example
+AUNO_PUBLIC_ORIGIN=https://auno.cash
 ```
 
 Do not commit the RPC value if it contains credentials. The entrypoint writes these values to an ignored, runtime-only `.dev.vars` file.

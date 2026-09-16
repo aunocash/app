@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync,writeFileSync } from 'node:fs';
+import { mkdirSync,readFileSync,writeFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import ts from 'typescript';
+mkdirSync('work',{recursive:true});
 async function build(options){let source=readFileSync(options.entryPoints[0],'utf8');source=source.replace("import { env } from 'cloudflare:workers';",'const env = globalThis.__AUNO_ENV__;').replace("from './model'","from './model.mjs'");writeFileSync(options.outfile,ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);}
 import { Keypair,Connection,Transaction,PublicKey,SystemProgram } from '@solana/web3.js';
 import bs58 from 'bs58';

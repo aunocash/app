@@ -30,7 +30,7 @@ export default function DocsPage() {
       <Link className="docs-portal-brand" href="/" aria-label="AUNO home"><Image src="/auno-logo.png" alt="" width={34} height={34} /><span>AUNO <b>Docs</b></span></Link>
       <DocsSearch items={searchItems} />
       <nav className="docs-portal-links" aria-label="Documentation links">
-        <a href="#getting-started">Guides</a><a href="/developers">API reference</a><a href="#api-status">SDK status</a><a href="/roadmap">Roadmap</a><a href="/deploy/auno" download>Download</a><a className="docs-portal-launch" href="/dashboard/create">Launch app <FiExternalLink aria-hidden="true" /></a>
+        <a href="#getting-started">Guides</a><a href="/developers">API reference</a><a href="#api-status">SDK status</a><a href="/roadmap">Roadmap</a><a href="/docs/download" download>Download</a><a className="docs-portal-launch" href="/dashboard/create">Launch app <FiExternalLink aria-hidden="true" /></a>
       </nav>
     </header>
     <main className="docs-portal">
@@ -46,7 +46,7 @@ export default function DocsPage() {
           <div className="docs-portal-status"><span className="docs-portal-status-dot" /> Developer preview</div>
           <h1>Build with clarity.</h1>
           <p className="docs-portal-lead">AUNO makes payment behavior explicit—from payment links and wallet-native checkout today to programmable settlement over time.</p>
-          <div className="docs-portal-hero-actions"><a className="button" href="#getting-started">Start here <FiArrowRight aria-hidden="true" /></a><a className="docs-portal-text-link" href="/developers">View API surface <FiArrowRight aria-hidden="true" /></a><a className="docs-portal-text-link" href="/deploy/auno" download>Download docs bundle <FiDownload aria-hidden="true" /></a></div>
+          <div className="docs-portal-hero-actions"><a className="button" href="#getting-started">Start here <FiArrowRight aria-hidden="true" /></a><a className="docs-portal-text-link" href="/developers">View API surface <FiArrowRight aria-hidden="true" /></a><a className="docs-portal-text-link" href="/docs/download" download>Download docs bundle <FiDownload aria-hidden="true" /></a></div>
           <div className="docs-portal-hero-note"><FiLock aria-hidden="true" /> AUNO never requests seed phrases or private keys.</div>
         </section>
         <Section id="getting-started" eyebrow="01 / GET STARTED" title="Understand the payment path.">

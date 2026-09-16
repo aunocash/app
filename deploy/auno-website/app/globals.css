@@ -438,20 +438,35 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
 }
 /* Payment app tabs: compact icon labels with a clear active state. */
 .app-tabs {
-  align-items: stretch;
-  gap: 8px;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid #eadfd4;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .72);
+  box-shadow: 0 8px 24px rgba(76, 49, 28, .06);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.app-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .app-tabs a {
-  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  padding: 8px 4px 12px;
-  border-bottom: 2px solid transparent;
-  color: #596b85;
-  transition: color var(--motion-ui), border-color var(--motion-ui), background-color var(--motion-ui);
+  flex: 0 0 auto;
+  padding: 9px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  transform: translateY(0);
+  transition: color var(--motion-ui), border-color var(--motion-ui), background-color var(--motion-ui), box-shadow var(--motion-emphasis), transform var(--motion-emphasis);
 }
 
 .app-tabs a svg {
@@ -463,6 +478,9 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
 
 .app-tabs a:hover {
   color: var(--orange-ink);
+  border-color: #f4d8c1;
+  background: var(--orange-soft);
+  transform: translateY(-1px);
 }
 
 .app-tabs a:hover svg {
@@ -470,8 +488,10 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
 }
 
 .app-tabs a.active {
-  color: var(--orange-ink);
-  border-bottom-color: var(--orange);
+  color: var(--ink);
+  border-color: #f0d2b8;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(76, 49, 28, .1), inset 0 2px 0 var(--orange);
   font-weight: 600;
 }
 
@@ -485,13 +505,12 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
 
 @media (max-width: 700px) {
   .app-tabs {
-    gap: 10px;
-    overflow-x: auto;
-    padding-bottom: 4px;
+    gap: 4px;
+    margin-inline: -2px;
   }
 
   .app-tabs a {
-    flex: 0 0 auto;
+    padding-inline: 12px;
   }
 }
 

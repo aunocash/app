@@ -1919,3 +1919,543 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
     color: var(--ink);
   }
 }
+/* Graphite dark mode, premium scrollbars, and borderless layout rails. */
+:root {
+  --scrollbar-thumb: #b6becb;
+  --scrollbar-thumb-hover: #8490a2;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  border-width: 1px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #f5f7fa;
+    --muted: #a4acb8;
+    --line: #252b35;
+    --paper: #090b0f;
+    --blue: #aab6ff;
+    --navy: #050608;
+    --orange-ink: #ffb27d;
+    --orange-soft: #3d2315;
+    --orange-hover: #ff9758;
+    --scrollbar-thumb: #3c4552;
+    --scrollbar-thumb-hover: #687588;
+  }
+
+  html {
+    background: var(--paper);
+    color-scheme: dark;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+
+  body {
+    background: #090b0f;
+    color: var(--ink);
+  }
+
+  h1 em {
+    color: #ffb27d;
+  }
+
+  p,
+  .muted {
+    color: var(--muted);
+  }
+
+  .nav,
+  .docs-portal-header {
+    background: rgba(9, 11, 15, .96);
+    border-color: var(--line);
+  }
+
+  .nav nav > a:not(.button):hover,
+  .text-link:hover,
+  .docs-portal-links a:hover {
+    color: var(--orange-ink);
+  }
+
+  .menu,
+  .button.light {
+    border-color: #2b323d;
+    background: #151920;
+    color: var(--ink);
+  }
+
+  .button.outline {
+    border-color: #2b323d;
+    color: var(--ink);
+  }
+
+  .button.outline:hover {
+    border-color: #9b6138;
+    background: #211711;
+  }
+
+  .eyebrow,
+  .hero-trust,
+  .hero-bottom,
+  .scene-label,
+  label {
+    color: #a4acb8;
+  }
+
+  .w1,
+  .w2 {
+    background: #5a351f;
+    opacity: .12;
+  }
+
+  .payment-card,
+  .link-preview,
+  .panel,
+  .feature,
+  .float-tag,
+  .settle-tag,
+  .split-workspace > .panel,
+  .wallet-options,
+  .wallet-option,
+  .split-flow,
+  .sf-source,
+  .sf-recipient,
+  .roadmap-flow-panel,
+  .roadmap-flow-step,
+  .roadmap-node-body,
+  .docs-portal-search-trigger,
+  .docs-portal-search-dialog,
+  .docs-portal-check-grid > div,
+  .docs-portal-api-card,
+  .docs-portal-next a {
+    border-color: #252b35;
+    background: #12161c;
+    color: var(--ink);
+  }
+
+  .payment-card {
+    background: #11151b;
+  }
+
+  .payment-card .card-sub,
+  .card-foot,
+  .settle-tag small,
+  .card-detail > span:first-child,
+  .amount span {
+    color: #9ca6b3;
+  }
+
+  .invoice-icon,
+  .split-panel-icon,
+  .split-recipient-index {
+    border-color: #80502f;
+    background: #3d2315;
+    color: #ffb27d;
+  }
+
+  .card-detail,
+  .code-panel > div,
+  .sf-summary {
+    border-color: var(--line);
+  }
+
+  .network-strip,
+  footer,
+  .footer-bottom,
+  .ecosystem {
+    border-color: var(--line);
+  }
+
+  .network-strip {
+    background: #0f1318;
+    color: #c3cbd5;
+  }
+
+  .checkout-band,
+  .developer-section {
+    background: #0d1015;
+  }
+
+  .steps > div {
+    border-color: #2c333d;
+  }
+
+  .steps span,
+  .split-source span,
+  .split-branches small,
+  .split-branches > div > span:last-child {
+    color: #a4acb8;
+  }
+
+  .split-line,
+  .split-track,
+  .roadmap-rail {
+    background: #3a424e;
+  }
+
+  .split-hub,
+  .sf-hub,
+  .sf-coin,
+  .wallet-icon-fallback {
+    border-color: #3b4653;
+    background: #1a2028;
+    color: #b6c0ff;
+  }
+
+  .split-branches strong,
+  .sf-percent,
+  .roadmap-capabilities span {
+    border-color: #2d353f;
+    background: #181d24;
+    color: var(--ink);
+  }
+
+  .feature:hover,
+  .wallet-option:hover:not(:disabled),
+  .docs-portal-search-trigger:hover,
+  .docs-portal-next a:hover {
+    border-color: #4a5665;
+    background: #1a2028;
+  }
+
+  .code-panel {
+    border-color: #2b333e;
+    background: #0e1218;
+  }
+
+  .code-panel small,
+  .docs-portal-brand b,
+  .docs-portal-nav-group p,
+  .docs-portal-toc p,
+  .docs-portal-next > span,
+  .docs-portal-next small,
+  .docs-portal-search-results a span,
+  .docs-portal-search-results > p {
+    color: #8f99a7;
+  }
+
+  .code-panel pre {
+    color: #c7d0dc;
+  }
+
+  .final-cta {
+    background: radial-gradient(ellipse at bottom, #352217, transparent 70%);
+  }
+
+  footer {
+    background: #0a0c10;
+  }
+
+  .badge,
+  .network-strip .badge {
+    border-color: #70472c;
+    background: #3d2315;
+    color: #ffb27d;
+  }
+
+  .notice {
+    border-color: #493a30;
+    background: #211a16;
+    color: #e2c1a9;
+  }
+
+  .notice.error {
+    border-color: #6b3c3b;
+    background: #29191d;
+    color: #ffb0a6;
+  }
+
+  th,
+  .receipt-details span {
+    color: #a4acb8;
+  }
+
+  .docs-portal-brand,
+  .docs-portal-hero h1,
+  .docs-portal-section h2,
+  .docs-portal-callout strong,
+  .docs-portal-inline-status strong,
+  .docs-portal-check-grid strong,
+  .docs-portal-api-card strong,
+  .docs-portal-next strong {
+    color: var(--ink);
+  }
+
+  .docs-portal-search-trigger kbd,
+  .docs-portal-copy code {
+    border-color: #2b333e;
+    background: #0e1218;
+    color: #c7d0dc;
+  }
+
+  .docs-portal-nav-group a,
+  .docs-portal-links,
+  .docs-portal-breadcrumbs,
+  .docs-portal-toc a,
+  .docs-portal-hero-note,
+  .docs-portal-sidebar-note {
+    color: #a4acb8;
+  }
+
+  .docs-portal-nav-group a:hover,
+  .docs-portal-search-results a:hover {
+    background: #1a2028;
+  }
+
+  .docs-portal-nav-group a.active {
+    background: var(--orange-soft);
+    color: var(--orange-ink);
+  }
+
+  .docs-portal-nav-group a.active:before {
+    display: none;
+  }
+
+  .docs-portal-callout,
+  .docs-portal-inline-status {
+    border-color: #2b333e;
+    background: #14181e;
+  }
+
+  .docs-portal-callout.muted {
+    border-left-color: #535e6c;
+    background: #10141a;
+  }
+
+  .docs-portal-steps > div,
+  .docs-portal-status-table > div {
+    border-inline: 0;
+  }
+
+  .docs-portal-steps > div > span,
+  .docs-portal-steps p,
+  .docs-portal-check-grid span,
+  .docs-portal-status-table span,
+  .docs-portal-api-card p {
+    color: #9ca6b3;
+  }
+
+  .docs-portal-mobile-nav {
+    border-color: var(--line);
+    background: #0e1218;
+  }
+
+  .docs-portal-mobile-nav span {
+    color: #8f99a7;
+  }
+
+  .docs-portal-search-backdrop {
+    background: rgba(0, 0, 0, .82);
+  }
+
+  .split-editor-panel,
+  .split-preview-panel {
+    background: #12161c;
+  }
+
+  .split-panel-icon-preview {
+    border-color: #4c465e;
+    background: #201d29;
+    color: #c2b8f0;
+  }
+
+  .split-kicker,
+  .split-field-label,
+  .split-recipients-header,
+  .split-total-summary > div > span,
+  .split-total-summary small,
+  .split-percent-field > span,
+  .split-remove-button,
+  .sf-source small,
+  .sf-source strong span,
+  .sf-recipient-role,
+  .sf-recipient > small,
+  .roadmap-flow-label,
+  .roadmap-flow-footer,
+  .roadmap-flow-step small,
+  .roadmap-flow-step span,
+  .roadmap-node-kicker,
+  .roadmap-hero-meta,
+  .roadmap-legend,
+  .roadmap-note {
+    color: #a4acb8;
+  }
+
+  .split-recipients-header {
+    border-color: #2c333d;
+  }
+
+  .split-field input,
+  .split-field select,
+  .split-row-field input,
+  .split-percent-field input,
+  .mock-input,
+  input,
+  select,
+  textarea {
+    border-color: #2b333e;
+    background: #0e1218;
+    color: var(--ink);
+  }
+
+  .mock-input::placeholder,
+  input::placeholder,
+  textarea::placeholder {
+    color: #778391;
+  }
+
+  .split-field input:focus,
+  .split-field select:focus,
+  .split-row-field input:focus,
+  .split-percent-field input:focus {
+    border-color: #eaa36f;
+    background: #151a20;
+    box-shadow: 0 0 0 4px rgba(253, 108, 3, .16);
+  }
+
+  .split-recipient-row-1 .split-recipient-index {
+    border-color: #4c465e;
+    background: #201d29;
+    color: #c2b8f0;
+  }
+
+  .split-recipient-row-2 .split-recipient-index {
+    border-color: #3b4653;
+    background: #1a2028;
+    color: #b6c0ff;
+  }
+
+  .split-add-button {
+    border-color: #3b4653;
+    background: #181d24;
+    color: var(--orange-ink);
+  }
+
+  .split-remove-button:hover:not(:disabled),
+  .split-add-button:hover:not(:disabled) {
+    border-color: #9b6138;
+    background: var(--orange-soft);
+    color: var(--orange-ink);
+  }
+
+  .split-rules-note,
+  .split-planned-note {
+    border-color: #5c4432;
+    background: rgba(61, 35, 21, .72);
+    color: #d8bda7;
+  }
+
+  .split-rules-note strong,
+  .split-planned-note strong {
+    color: #ffcfaa;
+  }
+
+  .allocation-bar {
+    border-color: #343d48;
+    background: #1b2129;
+  }
+
+  .roadmap-proof {
+    background: #11151b;
+    border-color: #252b35;
+  }
+
+  .roadmap-flow-panel,
+  .roadmap-flow-step,
+  .roadmap-node-body {
+    border-color: #252b35;
+    background: #12161c;
+  }
+
+  .roadmap-flow-step-active {
+    border-color: #6f7fd1;
+    box-shadow: 0 0 0 3px rgba(111, 127, 209, .17);
+  }
+
+  .roadmap-node-body:hover {
+    border-color: #4a5665;
+  }
+
+  .roadmap-status,
+  .roadmap-status-planned,
+  .roadmap-status-future {
+    border-color: #343d48;
+    background: #181d24;
+    color: #b4bdc9;
+  }
+
+  .roadmap-status-developer-preview {
+    border-color: #5d6ca6;
+    background: #1e2231;
+    color: #c0c8ff;
+  }
+
+  .roadmap-status-in-development {
+    border-color: #4e5f85;
+    background: #1b202b;
+    color: #bdc8ea;
+  }
+
+  .roadmap-status-long-term-direction {
+    border-color: #252b35;
+    background: #11151b;
+    color: var(--ink);
+  }
+
+  .roadmap-note,
+  .roadmap-flow-footer {
+    border-color: var(--line);
+  }
+
+  .roadmap-note strong {
+    color: var(--ink);
+  }
+
+  .docs-portal,
+  .docs-portal-sidebar,
+  .docs-portal-content,
+  .docs-portal-toc,
+  .docs-layout,
+  .docs-nav,
+  .app-tabs,
+  .app-tabs a,
+  .app-tabs a.active {
+    border-inline: 0;
+  }
+}
+
+/* Keep documentation rails and callouts free of visible side borders. */
+.docs-portal,
+.docs-portal-sidebar,
+.docs-portal-content,
+.docs-portal-toc,
+.docs-layout,
+.docs-nav,
+.docs-portal-callout,
+.docs-portal-callout.muted,
+.app-tabs,
+.app-tabs a,
+.app-tabs a.active {
+  border-inline: 0;
+}

@@ -8,15 +8,19 @@ assert.match(styles, /@media\s*\(prefers-color-scheme:\s*dark\)/);
 
 const darkTheme = styles.slice(styles.lastIndexOf("@media (prefers-color-scheme: dark)"));
 for (const token of [
-  "--ink: #f4f7fb",
-  "--muted: #adbacb",
-  "--line: #34445c",
-  "--paper: #0f1726",
-  "--orange-soft: #3a2416",
+  "--ink: #f5f7fa",
+  "--muted: #a4acb8",
+  "--line: #252b35",
+  "--paper: #090b0f",
+  "--orange-soft: #3d2315",
 ]) {
   assert.match(darkTheme, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 }
 
+assert.match(styles, /scrollbar-width:\s*thin/);
+assert.match(styles, /::-webkit-scrollbar\s*\{[^}]*width:\s*8px/s);
+assert.match(styles, /::-webkit-scrollbar-thumb/);
+assert.match(darkTheme, /border-inline:\s*0/);
 for (const selector of ["body", ".nav", ".panel", ".app-tabs", ".app-tabs a.active", ".mock-input", ".notice"]) {
   assert.match(darkTheme, new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 }

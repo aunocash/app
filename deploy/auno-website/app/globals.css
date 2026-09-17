@@ -1172,7 +1172,7 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
   color: var(--ink);
   border-color: #ffd8b8;
   background: #fff;
-  box-shadow: inset 0 3px 0 var(--orange), 0 4px 12px rgba(32, 42, 67, 0.08);
+  box-shadow: 0 4px 12px rgba(32, 42, 67, 0.08);
   font-weight: 600;
 }
 

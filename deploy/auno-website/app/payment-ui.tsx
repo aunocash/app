@@ -23,19 +23,34 @@ import {
 } from "@/lib/payments/model";
 import { availableWallets, connectWallet, type WalletSession } from "@/lib/payments/wallet";
 
+type SplitSettlement = {
+  paymentId: string;
+  attemptId: string;
+  attemptToken: string;
+  signature: string;
+  status: string;
+  relayMessage?: string;
+  error?: string;
+  receipt?: PaymentIntent;
+};
+
 async function api<T = PaymentIntent>(path: string, body?: unknown, headers?: Record<string, string>) {
   const response = await fetch(path, {
     method: body ? "POST" : "GET",
     headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...headers },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
-  const result = (await response.json()) as T & { error?: string };
+  let result: T & { error?: string };
+  try { result = await response.json() as T & { error?: string }; }
+  catch { throw new Error(`AUNO returned an unreadable response (${response.status}). Please retry.`); }
   if (!response.ok) throw new Error(result.error || "Request failed. Please try again.");
   return result;
 }
 
 function errorText(error: unknown) {
-  return error instanceof Error ? error.message : "Operation failed. Please try again.";
+  if (!(error instanceof Error)) return "Operation failed. Please try again.";
+  if (error.message === "Failed to fetch") return "Could not reach AUNO. Check your connection and try again.";
+  return error.message;
 }
 
 function WalletButton({ session, onChange }: { session: WalletSession | null; onChange: (session: WalletSession | null) => void }) {
@@ -226,8 +241,8 @@ export function CreatePayment() {
           <div className="panel-title">Payment details <span className="badge">DEVNET</span></div>
           <WalletButton session={wallet} onChange={changeWallet} />
           <form noValidate onSubmit={submit}>
-            <label style={{ marginTop: 25 }}>Title<input required maxLength={120} placeholder="Website Development" value={title} onChange={(event) => setTitle(event.target.value)} /></label>
-            <label>Description <span className="muted">(optional)</span><textarea maxLength={1000} placeholder="What is this payment for?" value={description} onChange={(event) => setDescription(event.target.value)} /></label>
+            <label style={{ marginTop: 25 }}>Title<input required maxLength={120} placeholder="AUNO Test Payment" value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+            <label>Description <span className="muted">(optional)</span><textarea maxLength={1000} placeholder="Testing AUNO Payment Link on Solana Devnet" value={description} onChange={(event) => setDescription(event.target.value)} /></label>
             <div className="two">
               <label>Amount<input required inputMode="decimal" placeholder="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
               <label>Asset<select value={asset} onChange={(event) => setAsset(event.target.value as Asset)}><option>SOL</option><option>USDC</option></select></label>
@@ -315,9 +330,13 @@ export function Checkout({ id }: { id: string }) {
       toast.loading("Submitting to Solana…", { id: notification });
       const result = await api<{ signature: string; message?: string }>(`/api/payments/${id}/submissions`, { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: signed });
       setSignature(result.signature);
-      setState("Submitted. Verify settlement below.");
-      toast.success("Payment submitted. Verify settlement below.", { id: notification });
-      if (result.message) toast.info(result.message);
+      if (result.message) {
+        setState("Submission needs confirmation");
+        toast.error("Solana has not accepted the payment yet.", { id: notification, description: result.message, duration: 6_000 });
+      } else {
+        setState("Submitted. Verify settlement below.");
+        toast.success("Payment submitted. Verify settlement below.", { id: notification });
+      }
     } catch (error) {
       setState("Payment not confirmed");
       toast.error(errorText(error), { id: notification });
@@ -360,14 +379,43 @@ export function PaymentHistory() {
   return <AppShell title="Your payment history." subtitle="Actual payment requests, with settlement verified on Solana."><div className="actions"><WalletButton session={wallet} onChange={(nextWallet) => { setWallet(nextWallet); setPayments(null); }} />{wallet && <button className="button" disabled={busy} onClick={load}>{busy ? "Authorizing…" : "Authorize & Load History"}</button>}</div>{payments === null ? <div className="empty"><h2>Your payments belong here.</h2><p>Connect your merchant wallet and sign a message to view payment requests.</p></div> : <><div className="history-tools"><input aria-label="Search payments" placeholder="Search title or payment ID" value={search} onChange={(event) => setSearch(event.target.value)} /><select aria-label="Filter status" value={filter} onChange={(event) => setFilter(event.target.value)}>{["ALL", "ACTIVE", "PAID", "EXPIRED", "CANCELLED"].map((status) => <option key={status}>{status}</option>)}</select></div>{visible.length ? <div className="table-wrap"><table><thead><tr><th>Payment</th><th>Amount</th><th>Status</th><th>Created</th><th>Transaction</th></tr></thead><tbody>{visible.map((payment) => <tr key={payment.id}><td><a href={`/pay/${payment.id}`}>{payment.title} <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a></td><td>{payment.amount} {payment.asset}</td><td><span className="badge">{payment.status}</span></td><td>{new Date(payment.createdAt).toLocaleDateString("en-US")}</td><td>{payment.transactionSignature ? <a href={explorer(payment.transactionSignature)} target="_blank" rel="noreferrer">Explorer <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a> : "—"}</td></tr>)}</tbody></table></div> : <div className="empty"><h2>No payments found.</h2><p>Create your first payment link or adjust your filters.</p><a className="button" href="/dashboard/create">Create Payment <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a></div>}<p className="detail-note">Up to 200 most recent requests. No sample transactions.</p></>}</AppShell>;
 }
 
+function SplitReceipt({ receipt }: { receipt: PaymentIntent }) {
+  const decimals = ASSETS[receipt.asset].decimals;
+  return (
+    <section className="notice split-receipt" role="status" aria-live="polite">
+      <div className="split-receipt-heading">
+        <FiCheckCircle aria-hidden="true" />
+        <div><strong>Verified payment receipt</strong><p>Every destination was paid in one finalized Devnet transaction.</p></div>
+      </div>
+      <div className="receipt-details">
+        <div><span>Payment ID</span><strong>{receipt.id}</strong></div>
+        <div><span>Payer</span><strong>{receipt.payer}</strong></div>
+        <div><span>Settled</span><strong>{receipt.paidAt ? new Date(receipt.paidAt).toISOString() : ""}</strong></div>
+        <div><span>Network</span><strong>Solana Devnet</strong></div>
+      </div>
+      <div className="split-allocation-list split-receipt-list">
+        {receipt.recipients.map((recipient) => (
+          <div className="split-allocation-item" key={recipient.address}>
+            <span className="split-allocation-label"><i aria-hidden="true" /><span><strong>{recipient.label}</strong><small>{recipient.address}</small></span></span>
+            <strong>{displayUnits(BigInt(recipient.amountBaseUnits), decimals)} {receipt.asset}</strong>
+          </div>
+        ))}
+      </div>
+      <a className="button small" href={explorer(receipt.transactionSignature!)} target="_blank" rel="noreferrer">
+        View verified transaction <FiExternalLink className="inline-icon action-icon" aria-hidden="true" />
+      </a>
+    </section>
+  );
+}
+
 export function SplitCalculator() {
   const [amount, setAmount] = useState("100");
   const [asset, setAsset] = useState<Asset>("USDC");
-  const [rows, setRows] = useState([{ label: "Merchant", wallet: "", bps: "80" }, { label: "Affiliate", wallet: "", bps: "15" }, { label: "Treasury", wallet: "", bps: "5" }]);
+  const [rows, setRows] = useState([{ label: "Olivia Bennett", wallet: "", bps: "80" }, { label: "Noah Williams", wallet: "", bps: "15" }, { label: "Ava Mitchell", wallet: "", bps: "5" }]);
   const [step, setStep] = useState<"configure" | "review">("configure");
   const [wallet, setWallet] = useState<WalletSession | null>(null);
   const [settling, setSettling] = useState(false);
-  const [settlement, setSettlement] = useState<{ paymentId: string; attemptId: string; attemptToken: string; signature: string; status: string } | null>(null);
+  const [settlement, setSettlement] = useState<SplitSettlement | null>(null);
   let error = "";
   let values: bigint[] = [];
   let recipients: SplitRecipient[] = [];
@@ -391,6 +439,7 @@ export function SplitCalculator() {
       return;
     }
     setSettling(true);
+    setSettlement(null);
     const notification = toast.loading("Authorizing split payment…");
     try {
       const payload = JSON.stringify({
@@ -411,11 +460,14 @@ export function SplitCalculator() {
       const prepared = await api<{ transaction: string; attemptId: string; attemptToken: string }>(`/api/payments/${payment.id}/prepare`, { payer: wallet.address });
       toast.loading("Approve one transaction in your wallet…", { id: notification });
       const signed = await wallet.signTransaction(prepared.transaction);
-      const submitted = await api<{ signature: string; status: string }>(`/api/payments/${payment.id}/submissions`, { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: signed });
-      setSettlement({ paymentId: payment.id, attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, ...submitted });
-      toast.success("Split transaction submitted. Finalization is now being checked.", { id: notification });
+      const submitted = await api<{ signature: string; status: string; message?: string }>(`/api/payments/${payment.id}/submissions`, { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: signed });
+      setSettlement({ paymentId: payment.id, attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, ...submitted, relayMessage: submitted.message });
+      if (submitted.message) toast.error("Solana has not accepted the split yet.", { id: notification, description: submitted.message, duration: 6_000 });
+      else toast.success("Split transaction submitted. Finalization is now being checked.", { id: notification });
     } catch (nextError) {
-      toast.error(errorText(nextError), { id: notification });
+      const message = errorText(nextError);
+      setSettlement((current) => current ? { ...current, error: message } : current);
+      toast.error("Split payment was not submitted.", { id: notification, description: message, duration: 6_000 });
     } finally {
       setSettling(false);
     }
@@ -426,12 +478,16 @@ export function SplitCalculator() {
     setSettling(true);
     const notification = toast.loading("Checking Devnet finalization…");
     try {
-      const result = await api<{ status: string; transactionSignature?: string }>(`/api/payments/${settlement.paymentId}/verify`, { attemptId: settlement.attemptId, attemptToken: settlement.attemptToken });
-      setSettlement((current) => current ? { ...current, status: result.status, signature: result.transactionSignature || current.signature } : current);
-      if (result.status === "PAID") toast.success("Every split transfer is finalized and verified.", { id: notification });
+      const result = await api<PaymentIntent | { status: string; signature?: string }>(`/api/payments/${settlement.paymentId}/verify`, { attemptId: settlement.attemptId, attemptToken: settlement.attemptToken });
+      const receipt = result.status === "PAID" && "recipients" in result ? result : undefined;
+      const verifiedSignature = "transactionSignature" in result ? result.transactionSignature : result.signature;
+      setSettlement((current) => current ? { ...current, status: result.status, signature: verifiedSignature || current.signature, error: undefined, receipt } : current);
+      if (receipt) toast.success("Split settled. Your verified receipt is ready.", { id: notification });
       else toast.info("Transaction is still confirming. Check again shortly.", { id: notification });
     } catch (nextError) {
-      toast.error(errorText(nextError), { id: notification });
+      const message = errorText(nextError);
+      setSettlement((current) => current ? { ...current, error: message } : current);
+      toast.error("Split verification failed.", { id: notification, description: message, duration: 6_000 });
     } finally {
       setSettling(false);
     }
@@ -483,7 +539,7 @@ export function SplitCalculator() {
                 <span className="split-recipient-index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
                 <label className="split-row-field">
                   <span className="sr-only">Recipient {index + 1} label</span>
-                  <input aria-label={`Recipient ${index + 1} label`} placeholder="Recipient label" value={row.label} onChange={(event) => setRows(rows.map((current, currentIndex) => currentIndex === index ? { ...current, label: event.target.value } : current))} />
+                  <input aria-label={`Recipient ${index + 1} label`} placeholder="e.g. Olivia Bennett" value={row.label} onChange={(event) => setRows(rows.map((current, currentIndex) => currentIndex === index ? { ...current, label: event.target.value } : current))} />
                 </label>
                 <label className="split-wallet-field">
                   <span className="sr-only">Recipient {index + 1} Solana wallet</span>
@@ -564,7 +620,18 @@ export function SplitCalculator() {
           </div>
           <div className="split-review-wallet"><div><strong>Connect payer wallet</strong><p>The payer signs once. The signed transaction must include every displayed destination and amount.</p></div><WalletButton session={wallet} onChange={setWallet} /></div>
           <div className="split-planned-note"><FiInfo aria-hidden="true" /><div><strong>Atomic Devnet settlement</strong><p>Your wallet first authorizes this payment intent, then signs one transaction containing every displayed destination. No funds move until that transaction is signed.</p></div></div>
-          {settlement && <div className="notice"><strong>Split transaction submitted</strong><p className="break"><a className="text-link" href={explorer(settlement.signature)} target="_blank" rel="noreferrer">{settlement.signature}</a></p><p>Finalization status: {settlement.status}</p><button className="button small" type="button" disabled={settling || settlement.status === "PAID"} onClick={verifySplit}>Check finalization</button></div>}
+          {settlement && (
+            settlement.receipt ? <SplitReceipt receipt={settlement.receipt} /> : (
+              <div className={`notice${settlement.relayMessage || settlement.error ? " error" : ""}`} role="status" aria-live="polite">
+                <strong>{settlement.relayMessage || settlement.error ? "Split needs attention" : "Split transaction submitted"}</strong>
+                <p className="break"><a className="text-link" href={explorer(settlement.signature)} target="_blank" rel="noreferrer">{settlement.signature}</a></p>
+                <p>Finalization status: {settlement.status}</p>
+                {settlement.relayMessage && <p>{settlement.relayMessage}</p>}
+                {settlement.error && <p>{settlement.error}</p>}
+                <button className="button small" type="button" disabled={settling} onClick={verifySplit}>Check finalization</button>
+              </div>
+            )
+          )}
           <div className="split-review-actions"><button className="button outline" type="button" disabled={settling} onClick={() => setStep("configure")}>Back to edit</button><button className="button" type="button" disabled={settling || Boolean(error) || !wallet} onClick={() => payAndSplit(Date.now())}>{settling ? "Preparing split…" : <>Pay & Split <FiArrowRight aria-hidden="true" /></>}</button></div>
         </section>
       )}

@@ -36,9 +36,9 @@ assert.deepEqual(
 
 assert.match(markup, /ANIMATED PREVIEW/);
 for (const recipient of [
-  ["Merchant", "80"],
-  ["Affiliate", "15"],
-  ["Treasury", "5"],
+  ["Olivia Bennett", "80"],
+  ["Noah Williams", "15"],
+  ["Ava Mitchell", "5"],
 ]) {
   assert.match(
     markup,
@@ -46,5 +46,7 @@ for (const recipient of [
     "the " + recipient[0] + " destination must be rendered with its allocated amount",
   );
 }
+
+assert.equal((markup.match(/sf-outgoing-packet/g) || []).length, 3, "each destination must receive an animated route packet");
 
 console.log("PASS split routing shows connected paths and exact destination cards");

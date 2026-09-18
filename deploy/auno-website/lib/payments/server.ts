@@ -60,6 +60,14 @@ function attemptToken() {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
+export function relayFailureMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : '';
+  if (/insufficient funds for rent/i.test(message)) return 'A new recipient wallet needs a larger SOL allocation to meet Solana’s rent-exempt minimum. Increase that recipient’s amount or use an existing wallet.';
+  if (/insufficient funds/i.test(message)) return 'The payer wallet does not have enough SOL for this payment and its network fee.';
+  if (/blockhash|expired/i.test(message)) return 'The prepared transaction expired before Solana accepted it. Start a new payment attempt.';
+  if (/rate limit|429/i.test(message)) return 'The configured Solana RPC is rate limited. Wait a moment, then retry this payment attempt.';
+  return 'Solana did not acknowledge this submission yet. Check finalization before creating a new payment attempt.';
+}
 async function enforceRateLimit(bucket: string, limit: number, windowMs: number) {
   const now = Date.now();
   await db().prepare('INSERT INTO payment_rate_limits (bucket,window_started_at,count) VALUES (?,?,1) ON CONFLICT(bucket) DO UPDATE SET count=CASE WHEN window_started_at<? THEN 1 ELSE count+1 END, window_started_at=CASE WHEN window_started_at<? THEN ? ELSE window_started_at END')
@@ -219,7 +227,7 @@ export async function submitPayment(req: Request, id: string) {
   const claim = await db().prepare("UPDATE payment_attempts SET signature=?,status='SUBMITTED',updated_at=? WHERE id=? AND status='PREPARED'").bind(signature, Date.now(), attempt.id).run();
   if (!claim.meta.changes) throw new PaymentError('This attempt has already been submitted.', 409);
   try { await c.sendRawTransaction(transaction.serialize(), { skipPreflight: false, maxRetries: 2 }); }
-  catch { return { attemptId: attempt.id, signature, status: 'SUBMITTED', message: 'Submission is uncertain. Keep this attempt secret and check its status.' }; }
+  catch (error) { return { attemptId: attempt.id, signature, status: 'SUBMITTED', message: relayFailureMessage(error) }; }
   return { attemptId: attempt.id, signature, status: 'SUBMITTED' };
 }
 function checkInstructions(payment: PaymentIntent, attempt: Attempt, parsed: { transaction: { message: { accountKeys: Array<{ pubkey: PublicKey; signer: boolean }>; instructions: Array<{ programId: PublicKey; parsed?: unknown }> } }; meta: { postTokenBalances?: Array<{ accountIndex: number; owner?: string; mint?: string }> | null } }) {

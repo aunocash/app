@@ -3021,13 +3021,49 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
     color: #ffb27d;
   }
 
-  .page-shell .split-rules-note,
-  .page-shell .split-planned-note,
-  .page-shell .notice {
-    border-color: #4e3726;
-    background: #1c1713;
-    color: #d8c1ae;
-  }
+.page-shell .split-rules-note,
+.page-shell .split-planned-note,
+.page-shell .notice {
+  border-color: #4e3726;
+  background: #1c1713;
+  color: #d8c1ae;
+}
+
+.page-shell .split-receipt {
+  display: grid;
+  gap: 18px;
+}
+
+.page-shell .split-receipt-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.page-shell .split-receipt-heading > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #fd6c03;
+}
+
+.page-shell .split-receipt-heading strong {
+  display: block;
+  color: #ffcfaa;
+}
+
+.page-shell .split-receipt-heading p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.page-shell .split-receipt .receipt-details {
+  margin: 0;
+}
+
+.page-shell .split-receipt-list {
+  margin: 0;
+}
 
   .page-shell .split-rules-note strong,
   .page-shell .split-planned-note strong {
@@ -3299,5 +3335,21 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
   .docs-portal-hero-actions .button,
   .docs-portal-hero-actions .docs-portal-text-link {
     white-space: normal;
+  }
+}
+
+/* Split preview: show the route itself, not decorative card rails. */
+.split-flow .sf-recipient {
+  border-top: 0;
+}
+
+.split-flow .sf-packet-core {
+  filter: drop-shadow(0 0 5px rgba(253, 108, 3, .8));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split-flow .sf-incoming-packet,
+  .split-flow .sf-outgoing-packet {
+    display: none;
   }
 }

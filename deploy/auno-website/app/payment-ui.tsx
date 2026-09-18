@@ -258,6 +258,7 @@ export function Checkout({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState("Loading payment…");
   const [signature, setSignature] = useState("");
+  const [attempt, setAttempt] = useState<{ id: string; token: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -282,12 +283,12 @@ export function Checkout({ id }: { id: string }) {
     setState("Confirming on Solana…");
     const notification = toast.loading("Confirming payment on Solana…");
     try {
-      const nextPayment = await api(`/api/payments/${id}/verify`, { signature: nextSignature });
+      if (!attempt) throw new Error("This browser session no longer has the attempt secret. Start a fresh payment attempt.");
+      const nextPayment = await api(`/api/payments/${id}/verify`, { attemptId: attempt.id, attemptToken: attempt.token });
       setPayment(nextPayment);
-      const nextState = nextPayment.status === "PAID" ? "Payment Confirmed" : nextPayment.status === "FAILED" ? "Payment failed" : "Confirming on Solana…";
+      const nextState = nextPayment.status === "PAID" ? "Payment Confirmed" : "Confirming on Solana…";
       setState(nextState);
       if (nextPayment.status === "PAID") toast.success("Payment verified.", { id: notification });
-      else if (nextPayment.status === "FAILED") toast.error("Payment verification failed.", { id: notification });
       else toast.info(nextState, { id: notification });
     } catch (error) {
       toast.error(errorText(error), { id: notification });
@@ -305,14 +306,15 @@ export function Checkout({ id }: { id: string }) {
     setState("Preparing your devnet transaction…");
     const notification = toast.loading("Preparing your Devnet transaction…");
     try {
-      const prepared = await api<{ transaction: string; attemptId: string }>(`/api/payments/${id}/prepare`, { payer: wallet.address });
+      const prepared = await api<{ transaction: string; attemptId: string; attemptToken: string }>(`/api/payments/${id}/prepare`, { payer: wallet.address });
+      setAttempt({ id: prepared.attemptId, token: prepared.attemptToken });
       setState("Awaiting Signature");
       toast.loading("Awaiting wallet signature…", { id: notification });
       const signed = await wallet.signTransaction(prepared.transaction);
       setState("Submitting to Solana…");
       toast.loading("Submitting to Solana…", { id: notification });
-      const result = await api<{ signature?: string; transactionSignature: string; message?: string }>(`/api/payments/${id}/submit`, { attemptId: prepared.attemptId, transaction: signed });
-      setSignature(result.signature || result.transactionSignature);
+      const result = await api<{ signature: string; message?: string }>(`/api/payments/${id}/submissions`, { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: signed });
+      setSignature(result.signature);
       setState("Submitted. Verify settlement below.");
       toast.success("Payment submitted. Verify settlement below.", { id: notification });
       if (result.message) toast.info(result.message);
@@ -355,7 +357,7 @@ export function PaymentHistory() {
   }
 
   const visible = (payments || []).filter((payment) => (filter === "ALL" || payment.status === filter) && `${payment.title} ${payment.id}`.toLowerCase().includes(search.toLowerCase()));
-  return <AppShell title="Your payment history." subtitle="Actual payment requests, with settlement verified on Solana."><div className="actions"><WalletButton session={wallet} onChange={(nextWallet) => { setWallet(nextWallet); setPayments(null); }} />{wallet && <button className="button" disabled={busy} onClick={load}>{busy ? "Authorizing…" : "Authorize & Load History"}</button>}</div>{payments === null ? <div className="empty"><h2>Your payments belong here.</h2><p>Connect your merchant wallet and sign a message to view payment requests.</p></div> : <><div className="history-tools"><input aria-label="Search payments" placeholder="Search title or payment ID" value={search} onChange={(event) => setSearch(event.target.value)} /><select aria-label="Filter status" value={filter} onChange={(event) => setFilter(event.target.value)}>{["ALL", "ACTIVE", "SUBMITTED", "CONFIRMING", "PAID", "FAILED", "EXPIRED"].map((status) => <option key={status}>{status}</option>)}</select></div>{visible.length ? <div className="table-wrap"><table><thead><tr><th>Payment</th><th>Amount</th><th>Status</th><th>Created</th><th>Transaction</th></tr></thead><tbody>{visible.map((payment) => <tr key={payment.id}><td><a href={`/pay/${payment.id}`}>{payment.title} <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a></td><td>{payment.amount} {payment.asset}</td><td><span className="badge">{payment.status}</span></td><td>{new Date(payment.createdAt).toLocaleDateString("en-US")}</td><td>{payment.transactionSignature ? <a href={explorer(payment.transactionSignature)} target="_blank" rel="noreferrer">Explorer <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a> : "—"}</td></tr>)}</tbody></table></div> : <div className="empty"><h2>No payments found.</h2><p>Create your first payment link or adjust your filters.</p><a className="button" href="/dashboard/create">Create Payment <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a></div>}<p className="detail-note">Up to 200 most recent requests. No sample transactions.</p></>}</AppShell>;
+  return <AppShell title="Your payment history." subtitle="Actual payment requests, with settlement verified on Solana."><div className="actions"><WalletButton session={wallet} onChange={(nextWallet) => { setWallet(nextWallet); setPayments(null); }} />{wallet && <button className="button" disabled={busy} onClick={load}>{busy ? "Authorizing…" : "Authorize & Load History"}</button>}</div>{payments === null ? <div className="empty"><h2>Your payments belong here.</h2><p>Connect your merchant wallet and sign a message to view payment requests.</p></div> : <><div className="history-tools"><input aria-label="Search payments" placeholder="Search title or payment ID" value={search} onChange={(event) => setSearch(event.target.value)} /><select aria-label="Filter status" value={filter} onChange={(event) => setFilter(event.target.value)}>{["ALL", "ACTIVE", "PAID", "EXPIRED", "CANCELLED"].map((status) => <option key={status}>{status}</option>)}</select></div>{visible.length ? <div className="table-wrap"><table><thead><tr><th>Payment</th><th>Amount</th><th>Status</th><th>Created</th><th>Transaction</th></tr></thead><tbody>{visible.map((payment) => <tr key={payment.id}><td><a href={`/pay/${payment.id}`}>{payment.title} <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a></td><td>{payment.amount} {payment.asset}</td><td><span className="badge">{payment.status}</span></td><td>{new Date(payment.createdAt).toLocaleDateString("en-US")}</td><td>{payment.transactionSignature ? <a href={explorer(payment.transactionSignature)} target="_blank" rel="noreferrer">Explorer <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a> : "—"}</td></tr>)}</tbody></table></div> : <div className="empty"><h2>No payments found.</h2><p>Create your first payment link or adjust your filters.</p><a className="button" href="/dashboard/create">Create Payment <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a></div>}<p className="detail-note">Up to 200 most recent requests. No sample transactions.</p></>}</AppShell>;
 }
 
 export function SplitCalculator() {
@@ -364,6 +366,8 @@ export function SplitCalculator() {
   const [rows, setRows] = useState([{ label: "Merchant", wallet: "", bps: "80" }, { label: "Affiliate", wallet: "", bps: "15" }, { label: "Treasury", wallet: "", bps: "5" }]);
   const [step, setStep] = useState<"configure" | "review">("configure");
   const [wallet, setWallet] = useState<WalletSession | null>(null);
+  const [settling, setSettling] = useState(false);
+  const [settlement, setSettlement] = useState<{ paymentId: string; attemptId: string; attemptToken: string; signature: string; status: string } | null>(null);
   let error = "";
   let values: bigint[] = [];
   let recipients: SplitRecipient[] = [];
@@ -376,6 +380,62 @@ export function SplitCalculator() {
 
   const totalPercent = recipients.reduce((total, recipient) => total + recipient.bps, 0) / 100;
   const totalLabel = Number.isFinite(totalPercent) ? `${totalPercent.toFixed(2).replace(/\.00$/, "")} %` : "—";
+
+  async function payAndSplit(now: number) {
+    if (!wallet) {
+      toast.error("Connect the payer wallet before continuing.");
+      return;
+    }
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    setSettling(true);
+    const notification = toast.loading("Authorizing split payment…");
+    try {
+      const payload = JSON.stringify({
+        merchantWallet: wallet.address,
+        title: "Split payment",
+        description: "Atomic Devnet split payment",
+        asset,
+        amount,
+        recipients: recipients.map((recipient) => ({ label: recipient.label, wallet: recipient.wallet, bps: recipient.bps })),
+        reference: "SPLIT-" + now,
+        expiresAt: now + 3_600_000,
+        timestamp: now,
+        origin: location.origin,
+      });
+      const signature = await wallet.signMessage(creationMessage(payload));
+      const payment = await api<PaymentIntent>("/api/payments", { payload, signature });
+      toast.loading("Preparing atomic transaction…", { id: notification });
+      const prepared = await api<{ transaction: string; attemptId: string; attemptToken: string }>(`/api/payments/${payment.id}/prepare`, { payer: wallet.address });
+      toast.loading("Approve one transaction in your wallet…", { id: notification });
+      const signed = await wallet.signTransaction(prepared.transaction);
+      const submitted = await api<{ signature: string; status: string }>(`/api/payments/${payment.id}/submissions`, { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: signed });
+      setSettlement({ paymentId: payment.id, attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, ...submitted });
+      toast.success("Split transaction submitted. Finalization is now being checked.", { id: notification });
+    } catch (nextError) {
+      toast.error(errorText(nextError), { id: notification });
+    } finally {
+      setSettling(false);
+    }
+  }
+
+  async function verifySplit() {
+    if (!settlement) return;
+    setSettling(true);
+    const notification = toast.loading("Checking Devnet finalization…");
+    try {
+      const result = await api<{ status: string; transactionSignature?: string }>(`/api/payments/${settlement.paymentId}/verify`, { attemptId: settlement.attemptId, attemptToken: settlement.attemptToken });
+      setSettlement((current) => current ? { ...current, status: result.status, signature: result.transactionSignature || current.signature } : current);
+      if (result.status === "PAID") toast.success("Every split transfer is finalized and verified.", { id: notification });
+      else toast.info("Transaction is still confirming. Check again shortly.", { id: notification });
+    } catch (nextError) {
+      toast.error(errorText(nextError), { id: notification });
+    } finally {
+      setSettling(false);
+    }
+  }
 
   return (
     <AppShell title="One payment. Many destinations." subtitle="Set exact destinations, review the split, then sign one atomic Devnet transaction when settlement is enabled.">
@@ -503,8 +563,9 @@ export function SplitCalculator() {
             {recipients.map((recipient, index) => <div className={`split-allocation-item split-allocation-item-${index}`} key={recipient.wallet}><span className="split-allocation-label"><i aria-hidden="true" /><span><strong>{recipient.label}</strong><small>{recipient.wallet}</small></span></span><strong>{displayUnits(values[index], ASSETS[asset].decimals)} {asset}</strong></div>)}
           </div>
           <div className="split-review-wallet"><div><strong>Connect payer wallet</strong><p>The payer signs once. The signed transaction must include every displayed destination and amount.</p></div><WalletButton session={wallet} onChange={setWallet} /></div>
-          <div className="split-planned-note"><FiInfo aria-hidden="true" /><div><strong>Atomic settlement is not enabled on this deployment</strong><p>Pay & Split remains locked until the secure split backend is connected and verified against real Devnet transfers. No transaction will be prepared or signed from this screen.</p></div></div>
-          <div className="split-review-actions"><button className="button outline" type="button" onClick={() => setStep("configure")}>Back to edit</button><button className="button" type="button" disabled title="Atomic settlement is not enabled">Pay & Split <FiArrowRight aria-hidden="true" /></button></div>
+          <div className="split-planned-note"><FiInfo aria-hidden="true" /><div><strong>Atomic Devnet settlement</strong><p>Your wallet first authorizes this payment intent, then signs one transaction containing every displayed destination. No funds move until that transaction is signed.</p></div></div>
+          {settlement && <div className="notice"><strong>Split transaction submitted</strong><p className="break"><a className="text-link" href={explorer(settlement.signature)} target="_blank" rel="noreferrer">{settlement.signature}</a></p><p>Finalization status: {settlement.status}</p><button className="button small" type="button" disabled={settling || settlement.status === "PAID"} onClick={verifySplit}>Check finalization</button></div>}
+          <div className="split-review-actions"><button className="button outline" type="button" disabled={settling} onClick={() => setStep("configure")}>Back to edit</button><button className="button" type="button" disabled={settling || Boolean(error) || !wallet} onClick={() => payAndSplit(Date.now())}>{settling ? "Preparing split…" : <>Pay & Split <FiArrowRight aria-hidden="true" /></>}</button></div>
         </section>
       )}
     </AppShell>

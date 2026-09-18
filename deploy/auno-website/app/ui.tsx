@@ -53,7 +53,7 @@ export function Brand() {
 
 export function Nav() {
   const [open, setOpen] = useState(false);
-  return <header className="nav"><Brand /><div className="nav-actions"><button className="menu" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? <FiX aria-hidden="true" /> : <FiMenu aria-hidden="true" />}</button></div><nav className={open ? "open" : ""}><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Docs</a><a href="/roadmap">Roadmap</a><a className="social-link nav-social-link" href="https://x.com/aunocash" target="_blank" rel="noreferrer" aria-label="Follow AUNO on X"><FaXTwitter aria-hidden="true" /></a><a className="button small" href="/dashboard/create">Try on Devnet <LaunchIcon /></a></nav></header>;
+  return <header className="nav"><div className="nav-inner"><Brand /><div className="nav-actions"><button className="menu" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? <FiX aria-hidden="true" /> : <FiMenu aria-hidden="true" />}</button></div><nav className={open ? "open" : ""}><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Docs</a><a href="/roadmap">Roadmap</a><a className="social-link nav-social-link" href="https://x.com/aunocash" target="_blank" rel="noreferrer" aria-label="Follow AUNO on X"><FaXTwitter aria-hidden="true" /></a><a className="button small" href="/dashboard/create">Try on Devnet <LaunchIcon /></a></nav></div></header>;
 }
 
 export function Footer() {

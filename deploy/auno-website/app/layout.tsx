@@ -9,8 +9,8 @@ export const metadata: Metadata = {
     "codex-preview": "development",
   },
   icons: {
-    icon: "/auno-logo.png",
-    shortcut: "/auno-logo.png",
+    icon: "/auno-tab-icon.svg",
+    shortcut: "/auno-tab-icon.svg",
   },
 };
 

@@ -3,7 +3,7 @@
 Paket source tanggal 13 September 2026, termasuk warna terbaru dan logo AUNO yang diunggah.
 
 ## Isi dan status
-- Landing page, dashboard payment links, checkout, docs, whitepaper, roadmap, split calculator.
+- Landing page, dashboard payment links, checkout, docs, whitepaper, roadmap, split payment.
 - React + TypeScript, Vinext, Cloudflare Workers, Cloudflare D1.
 - SOL/USDC: developer preview di Solana Devnet, bukan Mainnet.
 - Split: kalkulator alokasi dan animasi; settlement ke beberapa wallet BELUM aktif.

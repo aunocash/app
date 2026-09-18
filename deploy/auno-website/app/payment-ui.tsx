@@ -2,7 +2,7 @@
 
 import { WalletIcon } from "@web3icons/react/dynamic";
 import { Wallet } from "lucide-react";
-import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiDollarSign, FiExternalLink, FiEye, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers } from "react-icons/fi";
+import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers } from "react-icons/fi";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -121,7 +121,7 @@ export function AppShell({ children, title, subtitle }: { children: React.ReactN
   const tabs = [
     { href: "/dashboard/create", label: "Create Payment", icon: FiPlusCircle },
     { href: "/dashboard/payments", label: "Payment History", icon: FiClock },
-    { href: "/split", label: "Split Calculator", icon: FiGitBranch },
+    { href: "/split", label: "Split Payment", icon: FiGitBranch },
     { href: "/docs", label: "Help", icon: FiHelpCircle },
   ];
 
@@ -392,7 +392,7 @@ export function SplitCalculator() {
                 <h2 id="split-editor-title">Split payment</h2>
               </div>
             </div>
-            <span className="badge split-preview-badge"><FiEye aria-hidden="true" /> PREVIEW ONLY</span>
+            <span className="badge split-preview-badge"><FiGitBranch aria-hidden="true" /> DEVNET</span>
           </div>
 
           <div className="split-form-grid">

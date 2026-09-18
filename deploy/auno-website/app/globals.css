@@ -3636,6 +3636,47 @@ td,
 .final-cta { background: radial-gradient(ellipse at bottom, #21170f, #090b0f 68%); }
 .button.light { border-color: #30343a; background: #171a1f; color: #f5f5f3; }
 
+@media (max-width: 700px) {
+  .menu {
+    display: inline-grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #f5f5f3;
+  }
+
+  .menu svg { width: 21px; height: 21px; }
+}
+
+/* Animation frames must match the strict-dark surfaces above. */
+@keyframes sf-hub-pulse {
+  0%, 26%, 44%, 100% {
+    background: #1a1d22;
+    box-shadow: 0 0 0 6px #121417;
+  }
+  32%, 38% {
+    background: #21170f;
+    box-shadow: 0 0 0 10px rgba(253, 108, 3, .12);
+  }
+}
+
+@keyframes sf-arrival {
+  0%, 65%, 96%, 100% {
+    background: #171a1f;
+    box-shadow: 0 0 0 transparent;
+    transform: translateY(0);
+  }
+  73%, 87% {
+    background: #1c2025;
+    box-shadow: 0 4px 20px rgba(253, 108, 3, .12);
+    transform: translateY(-3px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .split-flow .sf-incoming-packet,
   .split-flow .sf-outgoing-packet {

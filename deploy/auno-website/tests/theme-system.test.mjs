@@ -29,5 +29,8 @@ assert.match(styles, /Strict dark theme: this final layer owns every public surf
 assert.match(styles, /html,\s*body\s*\{[^}]*background: #090b0f/);
 assert.match(styles, /\.docs-portal-search-dialog,[\s\S]*?background: #121417/);
 assert.match(styles, /\.split-segment-0,[\s\S]*?background: #fd6c03/);
+assert.match(styles, /Animation frames must match the strict-dark surfaces above/);
+assert.match(styles, /@keyframes sf-hub-pulse\s*\{[\s\S]*?background: #1a1d22/);
+assert.match(styles, /@keyframes sf-arrival\s*\{[\s\S]*?background: #171a1f/);
 
 console.log("PASS strict dark theme has no visible toggle or system preference listener");

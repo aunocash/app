@@ -216,7 +216,7 @@ export async function submitPayment(req: Request, id: string) {
   try {
     transaction = Transaction.from(Buffer.from(body.transaction, 'base64'));
     if (!transaction.verifySignatures() || await sha256(transaction.serializeMessage()) !== attempt.message_hash) throw new Error();
-  } catch { throw new PaymentError('Signed transaction differs from the prepared payment.', 409); }
+  } catch { throw new PaymentError('Signed transaction differs from the prepared payment.', 422); }
   const c = connection();
   await assertDevnet(c);
   if (await c.getBlockHeight('confirmed') > attempt.last_valid_block_height) {

@@ -19,6 +19,9 @@ assert.match(paymentUi, /label: "Split Payment"/);
 assert.doesNotMatch(paymentUi, /Split Calculator/);
 assert.match(paymentUi, /split-preview-badge[^>]*>.*?DEVNET/s);
 assert.doesNotMatch(paymentUi, /split-preview-badge[^>]*>.*?PREVIEW ONLY/s);
+assert.match(paymentUi, /assertPreparedTransaction/);
+assert.match(paymentUi, /wallet: ""/);
+assert.match(paymentUi, /View verified transaction/);
 
 for (const label of ["Available", "Preview", "Planned", "Public API & SDK", "Webhooks", "Escrow & Milestones", "Subscriptions"]) {
   assert.match(developers, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));

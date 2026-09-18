@@ -1,6 +1,7 @@
 "use client";
 
 import { WalletIcon } from "@web3icons/react/dynamic";
+import { Transaction } from "@solana/web3.js";
 import { Wallet } from "lucide-react";
 import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers } from "react-icons/fi";
 import { usePathname } from "next/navigation";
@@ -51,6 +52,26 @@ function errorText(error: unknown) {
   if (!(error instanceof Error)) return "Operation failed. Please try again.";
   if (error.message === "Failed to fetch") return "Could not reach AUNO. Check your connection and try again.";
   return error.message;
+}
+
+function decodeTransaction(base64: string) {
+  return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+}
+
+function sameBytes(left: Uint8Array, right: Uint8Array) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function assertPreparedTransaction(preparedTransaction: string, signedTransaction: string) {
+  try {
+    const prepared = Transaction.from(decodeTransaction(preparedTransaction));
+    const signed = Transaction.from(decodeTransaction(signedTransaction));
+    if (!signed.verifySignatures()) throw new Error("Your wallet did not attach a valid signature. Reconnect it and sign again.");
+    if (!sameBytes(prepared.serializeMessage(), signed.serializeMessage())) throw new Error("Your wallet changed the prepared transaction. Reconnect it, then start a new payment attempt.");
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error("Your wallet returned an unreadable signed transaction. Reconnect it and try again.");
+  }
 }
 
 function WalletButton({ session, onChange }: { session: WalletSession | null; onChange: (session: WalletSession | null) => void }) {
@@ -326,6 +347,7 @@ export function Checkout({ id }: { id: string }) {
       setState("Awaiting Signature");
       toast.loading("Awaiting wallet signature…", { id: notification });
       const signed = await wallet.signTransaction(prepared.transaction);
+      assertPreparedTransaction(prepared.transaction, signed);
       setState("Submitting to Solana…");
       toast.loading("Submitting to Solana…", { id: notification });
       const result = await api<{ signature: string; message?: string }>(`/api/payments/${id}/submissions`, { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: signed });
@@ -409,9 +431,9 @@ function SplitReceipt({ receipt }: { receipt: PaymentIntent }) {
 }
 
 const DEMO_SPLIT_ROWS = [
-  { label: "Olivia Bennett", wallet: "nYiXPyxLyqcotGasSq7r594DVBy89FsRmZ6gAs5vfEv", bps: "80" },
-  { label: "Noah Williams", wallet: "GKgW2Ns9g4f5aMxyWjbpY6MW7xDm8TG1Rm4uAAKmexEA", bps: "15" },
-  { label: "Ava Mitchell", wallet: "9PqcYh9ftXWYNC9TeBXdPU5KqERrVb44rYCHPAK8WkK2", bps: "5" },
+  { label: "Olivia Bennett", wallet: "", bps: "80" },
+  { label: "Noah Williams", wallet: "", bps: "15" },
+  { label: "Ava Mitchell", wallet: "", bps: "5" },
 ];
 
 export function SplitCalculator() {
@@ -471,6 +493,7 @@ export function SplitCalculator() {
       const prepared = await api<{ transaction: string; attemptId: string; attemptToken: string }>(`/api/payments/${payment.id}/prepare`, { payer: wallet.address });
       toast.loading("Approve one transaction in your wallet…", { id: notification });
       const signed = await wallet.signTransaction(prepared.transaction);
+      assertPreparedTransaction(prepared.transaction, signed);
       const submitted = await api<{ signature: string; status: string; message?: string }>(`/api/payments/${payment.id}/submissions`, { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: signed });
       setSettlement({ paymentId: payment.id, attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, ...submitted, relayMessage: submitted.message });
       if (submitted.message) toast.error("Solana has not accepted the split yet.", { id: notification, description: submitted.message, duration: 6_000 });

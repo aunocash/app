@@ -1,4 +1,4 @@
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element -- Reuses the exact main-navbar logo markup. */
 import Link from "next/link";
 import type { Metadata } from "next";
 import { FiArrowRight, FiCheckCircle, FiCode, FiDownload, FiExternalLink, FiLock, FiShield } from "react-icons/fi";
@@ -27,7 +27,7 @@ function Section({ id, eyebrow, title, children }: { id: string; eyebrow: string
 export default function DocsPage() {
   return <>
     <header className="docs-portal-header">
-      <Link className="docs-portal-brand" href="/" aria-label="AUNO home"><Image src="/auno-logo.png" alt="" width={34} height={34} unoptimized /><span>AUNO <b>Docs</b></span></Link>
+      <Link className="docs-portal-brand" href="/" aria-label="AUNO home"><img className="brand-logo docs-portal-logo" src="/auno-logo.png" alt="" width="34" height="34" /><span>AUNO <b>Docs</b></span></Link>
       <DocsSearch items={searchItems} />
       <nav className="docs-portal-links" aria-label="Documentation links">
         <a href="#getting-started">Guides</a><a href="/developers">API reference</a><a href="#api-status">SDK status</a><a href="/roadmap">Roadmap</a><a href="/docs/download" download>Download</a><a className="docs-portal-launch" href="/dashboard/create">Launch app <FiExternalLink aria-hidden="true" /></a>

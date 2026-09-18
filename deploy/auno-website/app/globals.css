@@ -3122,6 +3122,15 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
     background: #21170f;
     color: #ffb27d;
   }
+
+  /* Checkout uses a quiet internal rhythm, without full-width section rails. */
+  .checkout-band {
+    border-block: 0;
+  }
+
+  .checkout-band .steps > div {
+    border-top-color: #252b35;
+  }
 }
 
 /* Docs portal responsive shell: keep navigation, search, and rails in bounds. */

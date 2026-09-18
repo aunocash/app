@@ -23,3 +23,5 @@ for (const label of ["Available", "Preview", "Planned", "Public API & SDK", "Web
 assert.match(developers, /developer-capability-matrix/);
 assert.match(styles, /\.brand-logo,\s*\.mini-brand img,\s*\.sf-hub-logo\s*\{\s*filter:/);
 assert.match(styles, /\.developer-capability-matrix/);
+assert.match(styles, /Checkout uses a quiet internal rhythm, without full-width section rails/);
+assert.match(styles, /\.checkout-band\s*\{\s*border-block: 0/);

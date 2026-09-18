@@ -63,8 +63,13 @@ function sameBytes(left: Uint8Array, right: Uint8Array) {
 }
 
 function paymentMessage(transaction: Transaction) {
-  transaction.recentBlockhash = "11111111111111111111111111111111";
-  return transaction.serializeMessage();
+  const normalized = new Transaction();
+  normalized.feePayer = transaction.feePayer;
+  normalized.recentBlockhash = "11111111111111111111111111111111";
+  for (const instruction of transaction.instructions) {
+    if (instruction.programId.toBase58() !== "ComputeBudget111111111111111111111111111111") normalized.add(instruction);
+  }
+  return normalized.serializeMessage();
 }
 
 function assertPreparedTransaction(preparedTransaction: string, signedTransaction: string) {

@@ -10,6 +10,9 @@ export class PaymentError extends Error { constructor(message: string, public st
 type Runtime = Record<string, unknown> & { DB?: D1Database; SOLANA_RPC_URL?: string; SOLANA_NETWORK?: string; AUNO_TRUSTED_CLIENT_HEADER?: string };
 type Attempt = { id: string; payment_id: string; payer: string; message_hash: string; attempt_token_hash: string; last_valid_block_height: number; signature: string | null; status: string };
 const CANONICAL_BLOCKHASH = '11111111111111111111111111111111';
+const COMPUTE_BUDGET_PROGRAM = 'ComputeBudget111111111111111111111111111111';
+const MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
+const MAX_COMPUTE_UNIT_PRICE_MICRO_LAMPORTS = 100_000n;
 
 function runtime() { return env as unknown as Runtime; }
 function policy() { try { return paymentPolicy(runtime()); } catch { throw new PaymentError('Payment deployment settings are invalid.', 503); } }
@@ -57,10 +60,32 @@ async function sha256(value: Uint8Array | string) {
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes as unknown as BufferSource));
   return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
-function paymentMessage(message: Uint8Array) {
-  const normalized = Message.from(message);
+function paymentMessage(transaction: Transaction) {
+  const normalized = new Transaction();
+  normalized.feePayer = transaction.feePayer;
   normalized.recentBlockhash = CANONICAL_BLOCKHASH;
-  return normalized.serialize();
+  for (const instruction of transaction.instructions) {
+    if (instruction.programId.toBase58() !== COMPUTE_BUDGET_PROGRAM) normalized.add(instruction);
+  }
+  return normalized.serializeMessage();
+}
+function littleEndian(data: Uint8Array) {
+  let value = 0n;
+  for (let position = data.length - 1; position >= 0; position -= 1) value = (value << 8n) + BigInt(data[position]);
+  return value;
+}
+function validateComputeBudget(transaction: Transaction) {
+  const seen = new Set<number>();
+  for (const instruction of transaction.instructions) {
+    if (instruction.programId.toBase58() !== COMPUTE_BUDGET_PROGRAM) continue;
+    const data = Uint8Array.from(instruction.data);
+    const kind = data[0];
+    if (instruction.keys.length || seen.has(kind)) throw new PaymentError('Wallet added an invalid compute-budget instruction.', 422);
+    seen.add(kind);
+    if (kind === 2 && data.length === 5 && littleEndian(data.slice(1)) <= BigInt(MAX_COMPUTE_UNIT_LIMIT)) continue;
+    if (kind === 3 && data.length === 9 && littleEndian(data.slice(1)) <= MAX_COMPUTE_UNIT_PRICE_MICRO_LAMPORTS) continue;
+    throw new PaymentError('Wallet requested unsupported compute or priority-fee settings.', 422);
+  }
 }
 function attemptToken() {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
@@ -214,7 +239,7 @@ export async function preparePayment(req: Request, id: string) {
   const block = await c.getLatestBlockhash('confirmed');
   const transaction = await buildTransaction(payment, payer, attemptId, block.blockhash);
   await assertPayerHasFeeBudget(c, payment, payer, transaction);
-  const messageHash = await sha256(paymentMessage(transaction.serializeMessage()));
+  const messageHash = await sha256(paymentMessage(transaction));
   const now = Date.now();
   await db().prepare('INSERT INTO payment_attempts (id,payment_id,payer,message_hash,attempt_token_hash,last_valid_block_height,created_at,updated_at,status) VALUES (?,?,?,?,?,?,?,?,?)')
     .bind(attemptId, id, payer, messageHash, await sha256(secret), block.lastValidBlockHeight, now, now, 'PREPARED').run();
@@ -231,14 +256,19 @@ export async function submitPayment(req: Request, id: string) {
   let transaction: Transaction;
   try {
     transaction = Transaction.from(Buffer.from(body.transaction, 'base64'));
-    if (!transaction.verifySignatures() || await sha256(paymentMessage(transaction.serializeMessage())) !== attempt.message_hash) throw new Error();
-  } catch { throw new PaymentError('Signed transaction differs from the prepared payment.', 422); }
+    if (!transaction.verifySignatures() || await sha256(paymentMessage(transaction)) !== attempt.message_hash) throw new Error();
+    validateComputeBudget(transaction);
+  } catch (error) {
+    if (error instanceof PaymentError) throw error;
+    throw new PaymentError('Signed transaction differs from the prepared payment.', 422);
+  }
   const c = connection();
   await assertDevnet(c);
   if (await c.getBlockHeight('confirmed') > attempt.last_valid_block_height) {
     await db().prepare("UPDATE payment_attempts SET status='EXPIRED',updated_at=? WHERE id=? AND status='PREPARED'").bind(Date.now(), attempt.id).run();
     throw new PaymentError('This prepared transaction has expired. Start a fresh attempt.', 409);
   }
+  await assertPayerHasFeeBudget(c, payment, attempt.payer, transaction);
   const signature = bs58.encode(transaction.signature!);
   const claim = await db().prepare("UPDATE payment_attempts SET signature=?,status='SUBMITTED',updated_at=? WHERE id=? AND status='PREPARED'").bind(signature, Date.now(), attempt.id).run();
   if (!claim.meta.changes) throw new PaymentError('This attempt has already been submitted.', 409);
@@ -249,10 +279,11 @@ export async function submitPayment(req: Request, id: string) {
 function checkInstructions(payment: PaymentIntent, attempt: Attempt, parsed: { transaction: { message: { accountKeys: Array<{ pubkey: PublicKey; signer: boolean }>; instructions: Array<{ programId: PublicKey; parsed?: unknown }> } }; meta: { postTokenBalances?: Array<{ accountIndex: number; owner?: string; mint?: string }> | null } }) {
   const instructions = parsed.transaction.message.instructions;
   const payer = attempt.payer;
-  const allowed = payment.asset === 'SOL' ? new Set([SystemProgram.programId.toBase58(), MEMO_PROGRAM]) : new Set([TOKEN_PROGRAM_ID.toBase58(), ASSOCIATED_TOKEN_PROGRAM_ID.toBase58(), MEMO_PROGRAM]);
+  const allowed = payment.asset === 'SOL' ? new Set([SystemProgram.programId.toBase58(), MEMO_PROGRAM, COMPUTE_BUDGET_PROGRAM]) : new Set([TOKEN_PROGRAM_ID.toBase58(), ASSOCIATED_TOKEN_PROGRAM_ID.toBase58(), MEMO_PROGRAM, COMPUTE_BUDGET_PROGRAM]);
   if (instructions.some((instruction) => !allowed.has(instruction.programId.toBase58()))) throw new PaymentError('Transaction includes an unexpected instruction.');
   const expectedCount = payment.asset === 'SOL' ? payment.recipients.length + 1 : payment.recipients.length * 2 + 1;
-  if (instructions.length !== expectedCount) throw new PaymentError('Transaction instruction count is invalid.');
+  const computeCount = instructions.filter((instruction) => instruction.programId.toBase58() === COMPUTE_BUDGET_PROGRAM).length;
+  if (instructions.length !== expectedCount + computeCount || computeCount > 2) throw new PaymentError('Transaction instruction count is invalid.');
   const signers = parsed.transaction.message.accountKeys.filter((key) => key.signer).map((key) => key.pubkey.toBase58());
   if (signers.length !== 1 || signers[0] !== payer || parsed.transaction.message.accountKeys[0]?.pubkey.toBase58() !== payer) throw new PaymentError('Transaction payer or signer set is invalid.');
   const memo = 'auno:' + payment.id + ':' + attempt.id;
@@ -285,8 +316,9 @@ export async function verifyPayment(id: string, attemptId: unknown, token: unkno
   }
   if (parsed.meta?.err || !parsed.meta || !parsed.blockTime || parsed.blockTime * 1_000 < payment.createdAt - 60_000 || parsed.blockTime * 1_000 > payment.expiresAt + 30_000) throw new PaymentError('Transaction failed or falls outside the payment window.');
   const raw = await c.getTransaction(attempt.signature, { commitment: 'finalized', maxSupportedTransactionVersion: 0 });
-  const rawMessage = raw?.transaction.message as unknown as { serialize?: () => Uint8Array };
-  if (!rawMessage?.serialize || await sha256(paymentMessage(rawMessage.serialize())) !== attempt.message_hash) throw new PaymentError('Finalized transaction differs from the prepared payment.');
+  let finalized: Transaction | null = null;
+  try { if (raw?.transaction) finalized = Transaction.populate(raw.transaction.message as Message, raw.transaction.signatures); } catch { /* rejected below */ }
+  if (!finalized || await sha256(paymentMessage(finalized)) !== attempt.message_hash) throw new PaymentError('Finalized transaction differs from the prepared payment.');
   checkInstructions(payment, attempt, parsed as unknown as Parameters<typeof checkInstructions>[2]);
   const paid = await db().prepare("UPDATE payments SET status='PAID',transaction_signature=?,payer=?,paid_at=?,updated_at=? WHERE id=? AND status='ACTIVE'").bind(attempt.signature, attempt.payer, parsed.blockTime * 1_000, Date.now(), id).run();
   if (paid.meta.changes) await db().prepare("UPDATE payment_attempts SET status='VERIFIED',updated_at=? WHERE id=?").bind(Date.now(), attempt.id).run();

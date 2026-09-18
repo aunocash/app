@@ -10,6 +10,6 @@ assert.match(
 );
 assert.match(
   entrypoint,
-  /exec node \.\/scripts\/coolify-runtime\.mjs/,
+  /for migration in drizzle\/\*\.sql; do[\s\S]*?exec node \.\/scripts\/coolify-runtime\.mjs/,
   "The container must start the split runtime instead of exposing Wrangler directly.",
 );

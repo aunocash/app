@@ -16,13 +16,16 @@ printf 'SOLANA_NETWORK=%s\nSOLANA_RPC_URL=%s\n' "$SOLANA_NETWORK" "$SOLANA_RPC_U
 
 mkdir -p /app/.wrangler/state
 
-if [ ! -f /app/.wrangler/state/.auno-migration-0000-applied ]; then
-  node ./node_modules/wrangler/bin/wrangler.js d1 execute DB \
-    --local \
-    --config dist/server/wrangler.json \
-    --persist-to /app/.wrangler/state \
-    --file drizzle/0000_lush_the_executioner.sql
-  touch /app/.wrangler/state/.auno-migration-0000-applied
-fi
+for migration in drizzle/*.sql; do
+  marker="/app/.wrangler/state/.auno-migration-$(basename "$migration" .sql)-applied"
+  if [ ! -f "$marker" ]; then
+    node ./node_modules/wrangler/bin/wrangler.js d1 execute DB \
+      --local \
+      --config dist/server/wrangler.json \
+      --persist-to /app/.wrangler/state \
+      --file "$migration"
+    touch "$marker"
+  fi
+done
 
 exec node ./scripts/coolify-runtime.mjs

@@ -9,6 +9,7 @@ import {
   FiArrowUpRight,
   FiCheckSquare,
   FiChevronDown,
+  FiCopy,
   FiCornerDownRight,
   FiCreditCard,
   FiGitBranch,
@@ -21,11 +22,13 @@ import {
 } from "react-icons/fi";
 import { FaXTwitter } from "react-icons/fa6";
 import { SiSolana } from "react-icons/si";
+import { toast } from "sonner";
 import { SplitFlow } from "./split-flow";
 
 /* Full-document navigation deliberately resets wallet state between payment surfaces. */
 const ActionArrow = () => <FiArrowRight className="inline-icon action-icon" aria-hidden="true" />;
 const LaunchIcon = () => <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" />;
+const CONTRACT_ADDRESS = "52YLW3zzqzViDnZ421Vu17YyTv8TyMfxjUqZ8AYqpump";
 
 type ProductFeature = {
   icon: IconType;
@@ -54,7 +57,16 @@ export function Nav() {
 }
 
 export function Footer() {
-  return <footer><div><Brand /><p>Programmable Payments on Solana.</p></div><div><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Documentation</a><a href="/whitepaper">Whitepaper</a><a href="/roadmap">Roadmap</a><a className="social-link footer-social-link" href="https://x.com/aunocash" target="_blank" rel="noreferrer" aria-label="Follow AUNO on X"><FaXTwitter aria-hidden="true" /></a></div><div className="footer-bottom"><span>© 2026 AUNO</span><span>Value in motion.</span><span>Designed for auno.cash</span></div></footer>;
+  async function copyContractAddress() {
+    try {
+      await navigator.clipboard.writeText(CONTRACT_ADDRESS);
+      toast.success("Contract address copied");
+    } catch {
+      toast.error("Could not copy the contract address. Please copy it manually.");
+    }
+  }
+
+  return <footer><div><Brand /><p>Programmable Payments on Solana.</p><div className="contract-address"><span>CA</span><code title={CONTRACT_ADDRESS}>{CONTRACT_ADDRESS}</code><button type="button" onClick={copyContractAddress} aria-label="Copy AUNO contract address"><FiCopy aria-hidden="true" /></button></div></div><div><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Documentation</a><a href="/whitepaper">Whitepaper</a><a href="/roadmap">Roadmap</a><a className="social-link footer-social-link" href="https://x.com/aunocash" target="_blank" rel="noreferrer" aria-label="Follow AUNO on X"><FaXTwitter aria-hidden="true" /></a></div><div className="footer-bottom"><span>© 2026 AUNO</span><span>Value in motion.</span><span>Designed for auno.cash</span></div></footer>;
 }
 
 export function Flow() {

@@ -3636,6 +3636,54 @@ td,
 .final-cta { background: radial-gradient(ellipse at bottom, #21170f, #090b0f 68%); }
 .button.light { border-color: #30343a; background: #171a1f; color: #f5f5f3; }
 
+.contract-address {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(100%, 360px);
+  margin-top: 18px;
+  color: #a5a8ad;
+  font-size: 11px;
+}
+
+.contract-address > span {
+  color: #ffb27d;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+
+.contract-address code {
+  min-width: 0;
+  overflow: hidden;
+  padding: 5px 7px;
+  border: 1px solid #292d33;
+  border-radius: 5px;
+  background: #0d0f12;
+  color: #c5c8cc;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contract-address button {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #a5a8ad;
+}
+
+.contract-address button:hover { color: #ffb27d; }
+.contract-address button:focus-visible { outline: 2px solid #fd6c03; outline-offset: 2px; }
+.contract-address button svg { width: 15px; height: 15px; }
+
 @media (max-width: 700px) {
   .menu {
     display: inline-grid;

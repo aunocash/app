@@ -10,6 +10,9 @@ assert.match(home, /Public Beta · Solana Devnet/);
 assert.match(home, /Test payment flows with SOL and USDC before mainnet release\./);
 assert.doesNotMatch(home, /Test tokens only/);
 assert.match(home, /Explore Split Payment/);
+assert.match(home, /52YLW3zzqzViDnZ421Vu17YyTv8TyMfxjUqZ8AYqpump/);
+assert.match(home, /Contract address copied/);
+assert.match(home, /Copy AUNO contract address/);
 assert.match(home, /title: "Split Payments", description: "Calculate precise allocations before settlement\.", status: "DEVELOPER PREVIEW", href: "\/split"/);
 assert.match(paymentUi, /label: "Split Payment"/);
 assert.doesNotMatch(paymentUi, /Split Calculator/);
@@ -25,3 +28,4 @@ assert.match(styles, /\.brand-logo,\s*\.mini-brand img,\s*\.sf-hub-logo\s*\{\s*f
 assert.match(styles, /\.developer-capability-matrix/);
 assert.match(styles, /Checkout uses a quiet internal rhythm, without full-width section rails/);
 assert.match(styles, /\.checkout-band\s*\{\s*border-block: 0/);
+assert.match(styles, /\.contract-address\s*\{/);

@@ -3347,6 +3347,295 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
   filter: drop-shadow(0 0 5px rgba(253, 108, 3, .8));
 }
 
+/* Homepage split preview: strict charcoal surfaces, with orange reserved for payment flow. */
+.split-feature {
+  background: #0d0f12;
+  border-color: #252a31;
+  color: #f5f5f3;
+}
+
+.split-feature h2 { color: #f5f5f3; }
+.split-feature > div > p,
+.split-feature .detail-note { color: #a5a8ad; }
+.split-feature .eyebrow { color: #ffb27d; }
+.split-feature .text-link { color: #ffb27d; }
+.split-feature .eyebrow .badge,
+.split-flow .sf-heading .badge {
+  border-color: #5a3821;
+  background: #21170f;
+  color: #ffb27d;
+}
+
+.split-feature .split-flow {
+  border-color: #292d33;
+  background: #121417;
+  color: #f5f5f3;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .24);
+}
+
+.split-flow .sf-heading,
+.split-flow .sf-source small,
+.split-flow .sf-source strong span,
+.split-flow .sf-recipient-role,
+.split-flow .sf-recipient > small,
+.split-flow .sf-summary,
+.split-flow .sf-footer { color: #a5a8ad; }
+
+.split-flow .sf-incoming-track { stroke: #8b532e; }
+.split-flow .sf-source,
+.split-flow .sf-recipient {
+  border-color: #292d33;
+  background: #171a1f;
+  color: #f5f5f3;
+  box-shadow: none;
+}
+
+.split-flow .sf-coin,
+.split-flow .sf-hub {
+  border-color: #3a3f47;
+  background: #1a1d22;
+  color: #f5f5f3;
+}
+
+.split-flow .sf-hub {
+  box-shadow: 0 0 0 6px #121417;
+}
+
+.split-flow .sf-hub-logo { mix-blend-mode: normal; }
+.split-flow .sf-hub small { color: #a5a8ad; }
+.split-flow .sf-percent { border-color: #292d33; background: #171a1f; color: #f5f5f3; }
+.split-flow .sf-recipient strong { color: #f5f5f3; }
+.split-flow .sf-recipient strong > span { color: #a5a8ad; }
+.split-flow .sf-summary { border-color: #292d33; }
+.split-flow .sf-summary strong { color: #ffb27d; }
+
+/* Strict dark theme: this final layer owns every public surface. */
+:root {
+  color-scheme: dark;
+  --ink: #f5f5f3;
+  --muted: #a5a8ad;
+  --line: #292d33;
+  --paper: #090b0f;
+  --navy: #090b0f;
+  --blue: #fd6c03;
+  --orange-ink: #ffb27d;
+  --orange-soft: #21170f;
+}
+
+html,
+body {
+  background: #090b0f;
+  color: #f5f5f3;
+}
+
+.nav,
+.docs-portal-header,
+footer,
+.network-strip,
+.checkout-band,
+.developer-section,
+.page-shell,
+.docs-portal-mobile-nav {
+  border-color: #292d33;
+  background: #0d0f12;
+  color: #f5f5f3;
+}
+
+.payment-card,
+.link-preview,
+.panel,
+.feature,
+.float-tag,
+.settle-tag,
+.code-panel,
+.roadmap-proof,
+.roadmap-flow-panel,
+.roadmap-flow-step,
+.roadmap-node-body,
+.docs-portal-search-trigger,
+.docs-portal-search-dialog,
+.docs-portal-check-grid > div,
+.docs-portal-api-card,
+.docs-portal-next a,
+.docs-portal-callout,
+.docs-portal-inline-status,
+.docs-portal-steps > div,
+.docs-portal-status-table > div,
+.developer-capability,
+.split-workspace > .panel,
+.split-review-wallet,
+.wallet-options,
+.wallet-option,
+.app-tabs {
+  border-color: #292d33;
+  background: #121417;
+  color: #f5f5f3;
+  box-shadow: none;
+}
+
+.payment-card,
+.float-tag,
+.settle-tag,
+.roadmap-proof,
+.code-panel,
+.docs-portal-search-dialog,
+.app-tabs {
+  background: #111317;
+}
+
+.feature:hover,
+.wallet-option:hover:not(:disabled),
+.roadmap-node-body:hover,
+.roadmap-flow-step:hover,
+.developer-capability:hover,
+.docs-portal-next a:hover,
+.docs-portal-nav-group a:hover,
+.docs-portal-search-results a:hover,
+.app-tabs a:hover {
+  border-color: #3d4249;
+  background: #1a1d22;
+  color: #f5f5f3;
+}
+
+.app-tabs a,
+.docs-portal-nav-group a,
+.docs-portal-links,
+.docs-portal-breadcrumbs,
+.docs-portal-toc a,
+.roadmap-flow-label,
+.roadmap-flow-footer,
+.roadmap-flow-step small,
+.roadmap-flow-step span,
+.roadmap-node-kicker,
+.roadmap-legend,
+.roadmap-note,
+.developer-capability > div > span,
+.docs-portal-hero-note,
+.docs-portal-sidebar-note,
+.docs-portal-search-results > p {
+  color: #a5a8ad;
+}
+
+.app-tabs a.active,
+.docs-portal-nav-group a.active {
+  border-color: #5a3821;
+  background: #21170f;
+  color: #f5f5f3;
+  box-shadow: inset 0 2px 0 #fd6c03;
+}
+
+.app-tabs a svg,
+.feature-icon,
+.roadmap-hero-meta svg,
+.roadmap-note > svg,
+.roadmap-flow-arrow,
+.roadmap-node-index svg,
+.roadmap-capabilities svg {
+  color: #ffb27d;
+}
+
+.mock-input,
+input,
+select,
+textarea,
+.split-field input,
+.split-field select,
+.split-row-field input,
+.split-percent-field input,
+.split-wallet-field input,
+.docs-portal-search-input,
+.docs-portal-search-trigger kbd,
+.docs-portal-copy code,
+.doc-section pre {
+  border-color: #30343a;
+  background: #0d0f12;
+  color: #f5f5f3;
+}
+
+.mock-input::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: #737880;
+}
+
+.mock-input:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #fd6c03;
+  background: #101215;
+  box-shadow: 0 0 0 4px rgba(253, 108, 3, .16);
+}
+
+.notice,
+.split-rules-note,
+.split-planned-note,
+.split-validation-state {
+  border-color: #4e3726;
+  background: #1c1713;
+  color: #d8c1ae;
+}
+
+.notice.error {
+  border-color: #633b34;
+  background: #201518;
+  color: #f0b7aa;
+}
+
+.badge,
+.roadmap-status,
+.developer-capability-status,
+.split-total-badge {
+  border-color: #5a3821;
+  background: #21170f;
+  color: #ffb27d;
+}
+
+.roadmap-legend-dot,
+.roadmap-node-index,
+.roadmap-capabilities span {
+  border-color: #30343a;
+  background: #171a1f;
+  color: #c5c8cc;
+}
+
+.roadmap-node-developer-preview .roadmap-node-index,
+.roadmap-legend-dot-active,
+.roadmap-rail span,
+.split-segment-0,
+.split-segment-1,
+.split-segment-2,
+.split-segment-3,
+.split-segment-4,
+.split-allocation-item-0 .split-allocation-label i,
+.split-allocation-item-1 .split-allocation-label i,
+.split-allocation-item-2 .split-allocation-label i,
+.split-allocation-item-3 .split-allocation-label i,
+.split-allocation-item-4 .split-allocation-label i {
+  border-color: #fd6c03;
+  background: #fd6c03;
+  color: #0d0f12;
+}
+
+.allocation-bar,
+.roadmap-rail,
+.split-allocation-item,
+.split-recipients-header,
+.split-review-summary,
+.receipt-details > div,
+th,
+td,
+.docs-portal-callout,
+.docs-portal-inline-status,
+.docs-portal-steps > div,
+.docs-portal-status-table > div {
+  border-color: #292d33;
+}
+
+.allocation-bar { background: #0d0f12; box-shadow: none; }
+.final-cta { background: radial-gradient(ellipse at bottom, #21170f, #090b0f 68%); }
+.button.light { border-color: #30343a; background: #171a1f; color: #f5f5f3; }
+
 @media (prefers-reduced-motion: reduce) {
   .split-flow .sf-incoming-packet,
   .split-flow .sf-outgoing-packet {

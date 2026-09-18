@@ -21,5 +21,13 @@ assert.match(styles, /\.page-shell \.app-tabs\s*\{[^}]*background: #0f1114/);
 assert.match(styles, /\.page-shell \.panel,[\s\S]*?background: #121417/);
 assert.match(styles, /Charcoal palette normalization: orange is the only active product accent/);
 assert.match(styles, /\.roadmap-status-developer-preview,[\s\S]*?background: #21170f/);
+assert.match(styles, /Homepage split preview: strict charcoal surfaces, with orange reserved for payment flow/);
+assert.match(styles, /\.split-feature\s*\{[^}]*background: #0d0f12/);
+assert.match(styles, /\.split-feature \.split-flow\s*\{[^}]*background: #121417/);
+assert.match(styles, /\.split-flow \.sf-recipient\s*\{[^}]*background: #171a1f/);
+assert.match(styles, /Strict dark theme: this final layer owns every public surface/);
+assert.match(styles, /html,\s*body\s*\{[^}]*background: #090b0f/);
+assert.match(styles, /\.docs-portal-search-dialog,[\s\S]*?background: #121417/);
+assert.match(styles, /\.split-segment-0,[\s\S]*?background: #fd6c03/);
 
 console.log("PASS strict dark theme has no visible toggle or system preference listener");

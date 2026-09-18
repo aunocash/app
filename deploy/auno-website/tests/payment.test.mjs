@@ -21,6 +21,36 @@ await build({entryPoints:['lib/payments/server.ts'],outfile:'work/server-test.mj
 const server=await import('../work/server-test.mjs');
 check('auno.cash origin allowlist',()=>{assert.doesNotThrow(()=>server.sameOrigin(new Request('https://auno.cash/api/payments',{headers:{origin:'https://auno.cash'}})));assert.doesNotThrow(()=>server.sameOrigin(new Request('https://auno.cash/api/payments',{headers:{origin:'https://www.auno.cash'}})));assert.throws(()=>server.sameOrigin(new Request('https://auno.cash/api/payments',{headers:{origin:'https://evil.example'}})));assert.doesNotThrow(()=>server.sameOrigin(new Request('http://localhost:5173/api/payments',{headers:{origin:'http://localhost:5173'}})))});
 const merchant=Keypair.generate(),payer=Keypair.generate();
+check('Split recipients require unique valid wallets and a complete allocation',()=>{
+  const affiliate=Keypair.generate().publicKey.toBase58();
+  const treasury=Keypair.generate().publicKey.toBase58();
+  assert.deepEqual(model.validateSplitRecipients([
+    {label:'Merchant',wallet:merchant.publicKey.toBase58(),bps:8000},
+    {label:'Affiliate',wallet:affiliate,bps:1500},
+    {label:'Treasury',wallet:treasury,bps:500},
+  ]),[
+    {label:'Merchant',wallet:merchant.publicKey.toBase58(),bps:8000},
+    {label:'Affiliate',wallet:affiliate,bps:1500},
+    {label:'Treasury',wallet:treasury,bps:500},
+  ]);
+  assert.throws(()=>model.validateSplitRecipients([
+    {label:'Merchant',wallet:merchant.publicKey.toBase58(),bps:5000},
+    {label:'Duplicate',wallet:merchant.publicKey.toBase58(),bps:5000},
+  ]));
+  assert.throws(()=>model.validateSplitRecipients([
+    {label:'Merchant',wallet:merchant.publicKey.toBase58(),bps:10000},
+  ]));
+  assert.throws(()=>model.validateSplitRecipients([
+    {label:'Merchant',wallet:'not-a-solana-wallet',bps:5000},
+    {label:'Affiliate',wallet:affiliate,bps:5000},
+  ]));
+});
+check('Split percentages convert to exact basis points',()=>{
+  assert.equal(model.percentToBps('80'),8000);
+  assert.equal(model.percentToBps('15.25'),1525);
+  assert.throws(()=>model.percentToBps('1e2'));
+  assert.throws(()=>model.percentToBps('100.001'));
+});
 const origin='http://localhost:5173';
 const payload=JSON.stringify({merchantWallet:merchant.publicKey.toBase58(),title:'Controlled integration test',description:'Test record',asset:'SOL',amount:'0.001',recipient:merchant.publicKey.toBase58(),reference:'TEST',expiresAt:Date.now()+3600000,timestamp:Date.now(),origin});
 const sig=bs58.encode(nacl.sign.detached(new TextEncoder().encode(model.creationMessage(payload)),merchant.secretKey));

@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { FiArrowRight, FiCheckCircle, FiCode, FiDownload, FiExternalLink, FiLock, FiShield } from "react-icons/fi";
 import { Footer } from "../ui";
+import { ThemeToggle } from "../theme-toggle";
 import { DocsSearch } from "./docs-search";
 
 export const metadata: Metadata = {
@@ -27,10 +28,10 @@ function Section({ id, eyebrow, title, children }: { id: string; eyebrow: string
 export default function DocsPage() {
   return <>
     <header className="docs-portal-header">
-      <Link className="docs-portal-brand" href="/" aria-label="AUNO home"><Image src="/auno-logo.png" alt="" width={34} height={34} /><span>AUNO <b>Docs</b></span></Link>
+      <Link className="docs-portal-brand" href="/" aria-label="AUNO home"><Image src="/auno-tab-icon.svg" alt="" width={34} height={34} unoptimized /><span>AUNO <b>Docs</b></span></Link>
       <DocsSearch items={searchItems} />
       <nav className="docs-portal-links" aria-label="Documentation links">
-        <a href="#getting-started">Guides</a><a href="/developers">API reference</a><a href="#api-status">SDK status</a><a href="/roadmap">Roadmap</a><a href="/docs/download" download>Download</a><a className="docs-portal-launch" href="/dashboard/create">Launch app <FiExternalLink aria-hidden="true" /></a>
+        <a href="#getting-started">Guides</a><a href="/developers">API reference</a><a href="#api-status">SDK status</a><a href="/roadmap">Roadmap</a><a href="/docs/download" download>Download</a><a className="docs-portal-launch" href="/dashboard/create">Launch app <FiExternalLink aria-hidden="true" /></a><ThemeToggle />
       </nav>
     </header>
     <main className="docs-portal">
@@ -38,7 +39,6 @@ export default function DocsPage() {
       <aside className="docs-portal-sidebar" aria-label="Documentation navigation">
         <div className="docs-portal-sidebar-intro"><span>DOCUMENTATION</span><small>Developer preview</small></div>
         {navGroups.map((group) => <div className="docs-portal-nav-group" key={group.label}><p>{group.label}</p>{group.items.map(([id, title], index) => <a className={index === 0 && group.label === "GET STARTED" ? "active" : ""} href={"#" + id} key={id}>{title}</a>)}</div>)}
-        <div className="docs-portal-sidebar-note"><FiShield aria-hidden="true" /><span>Devnet only. No mainnet payments.</span></div>
       </aside>
       <article className="docs-portal-content">
         <div className="docs-portal-breadcrumbs"><Link href="/">AUNO</Link><span>/</span><span>Docs</span></div>

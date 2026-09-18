@@ -8,11 +8,14 @@ import {
   TriangleAlertIcon,
 } from "lucide-react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { useAunoTheme } from "@/app/theme"
 
 const Toaster = ({ ...props }: ToasterProps) => {
+  const theme = useAunoTheme()
+
   return (
     <Sonner
-      theme="light"
+      theme={theme}
       position="top-right"
       closeButton
       className="toaster group"
@@ -25,9 +28,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       style={
         {
-          "--normal-bg": "#ffffff",
-          "--normal-text": "#202a43",
-          "--normal-border": "#dce4ef",
+          "--normal-bg": theme === "dark" ? "#151515" : "#ffffff",
+          "--normal-text": theme === "dark" ? "#f7f5f2" : "#171717",
+          "--normal-border": theme === "dark" ? "#2d2c2a" : "#dedad4",
           "--border-radius": "12px",
         } as React.CSSProperties
       }

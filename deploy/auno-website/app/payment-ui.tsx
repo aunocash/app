@@ -4,7 +4,7 @@ import { WalletIcon } from "@web3icons/react/dynamic";
 import { Wallet } from "lucide-react";
 import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers } from "react-icons/fi";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Footer, Nav } from "./ui";
 import {
@@ -14,9 +14,12 @@ import {
   displayUnits,
   explorer,
   historyMessage,
+  percentToBps,
   toBaseUnits,
+  validateSplitRecipients,
   type Asset,
   type PaymentIntent,
+  type SplitRecipient,
 } from "@/lib/payments/model";
 import { availableWallets, connectWallet, type WalletSession } from "@/lib/payments/wallet";
 
@@ -358,30 +361,31 @@ export function PaymentHistory() {
 export function SplitCalculator() {
   const [amount, setAmount] = useState("100");
   const [asset, setAsset] = useState<Asset>("USDC");
-  const [rows, setRows] = useState([{ name: "Merchant", bps: "8000" }, { name: "Affiliate", bps: "1500" }, { name: "Treasury", bps: "500" }]);
-  const previousError = useRef("");
+  const [rows, setRows] = useState([{ label: "Merchant", wallet: "", bps: "80" }, { label: "Affiliate", wallet: "", bps: "15" }, { label: "Treasury", wallet: "", bps: "5" }]);
+  const [step, setStep] = useState<"configure" | "review">("configure");
+  const [wallet, setWallet] = useState<WalletSession | null>(null);
   let error = "";
   let values: bigint[] = [];
+  let recipients: SplitRecipient[] = [];
   try {
-    values = allocate(toBaseUnits(amount, ASSETS[asset].decimals), rows.map((row) => Number(row.bps)));
+    recipients = validateSplitRecipients(rows.map((row) => ({ ...row, bps: percentToBps(row.bps) })));
+    values = allocate(toBaseUnits(amount, ASSETS[asset].decimals), recipients.map((recipient) => recipient.bps));
   } catch (nextError) {
     error = errorText(nextError);
   }
 
-  useEffect(() => {
-    if (error && error !== previousError.current) toast.error(error);
-    previousError.current = error;
-  }, [error]);
-
-  const totalBps = rows.reduce((total, row) => {
-    const bps = Number(row.bps);
-    return total + (Number.isFinite(bps) ? bps : 0);
-  }, 0);
-  const totalPercent = totalBps / 100;
+  const totalPercent = recipients.reduce((total, recipient) => total + recipient.bps, 0) / 100;
   const totalLabel = Number.isFinite(totalPercent) ? `${totalPercent.toFixed(2).replace(/\.00$/, "")} %` : "—";
 
   return (
-    <AppShell title="One payment. Many destinations." subtitle="Preview exact allocations. This calculator does not create or send a payment.">
+    <AppShell title="One payment. Many destinations." subtitle="Set exact destinations, review the split, then sign one atomic Devnet transaction when settlement is enabled.">
+      <ol className="split-flow-steps" aria-label="Split payment flow">
+        <li className={step === "configure" ? "is-current" : "is-complete"}><span>1</span><div><strong>Configure</strong><small>Amount, asset, wallets, allocation</small></div></li>
+        <li className={step === "review" ? "is-current" : ""}><span>2</span><div><strong>Connect & review</strong><small>Confirm every destination</small></div></li>
+        <li><span>3</span><div><strong>Pay & Split</strong><small>One signature, atomic settlement</small></div></li>
+      </ol>
+
+      {step === "configure" ? (
       <div className="split-workspace">
         <section className="panel split-editor-panel" aria-labelledby="split-editor-title">
           <div className="split-panel-header">
@@ -410,7 +414,7 @@ export function SplitCalculator() {
           </div>
 
           <div className="split-recipients-header">
-            <span><FiUsers aria-hidden="true" /> Recipients</span>
+            <span><FiUsers aria-hidden="true" /> Recipients and wallets</span>
             <span><FiPercent aria-hidden="true" /> Allocation</span>
           </div>
           <div className="split-recipient-list">
@@ -418,12 +422,16 @@ export function SplitCalculator() {
               <div className={`split-recipient-row split-recipient-row-${index}`} key={index}>
                 <span className="split-recipient-index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
                 <label className="split-row-field">
-                  <span className="sr-only">Recipient {index + 1} name</span>
-                  <input aria-label={`Recipient ${index + 1} label`} placeholder="Recipient name" value={row.name} onChange={(event) => setRows(rows.map((current, currentIndex) => currentIndex === index ? { ...current, name: event.target.value } : current))} />
+                  <span className="sr-only">Recipient {index + 1} label</span>
+                  <input aria-label={`Recipient ${index + 1} label`} placeholder="Recipient label" value={row.label} onChange={(event) => setRows(rows.map((current, currentIndex) => currentIndex === index ? { ...current, label: event.target.value } : current))} />
+                </label>
+                <label className="split-wallet-field">
+                  <span className="sr-only">Recipient {index + 1} Solana wallet</span>
+                  <input aria-label={`Recipient ${index + 1} Solana wallet`} autoComplete="off" placeholder="Solana wallet address" spellCheck="false" value={row.wallet} onChange={(event) => setRows(rows.map((current, currentIndex) => currentIndex === index ? { ...current, wallet: event.target.value } : current))} />
                 </label>
                 <label className="split-percent-field">
                   <span className="sr-only">Recipient {index + 1} percentage</span>
-                  <input aria-label={`Recipient ${index + 1} percentage`} inputMode="numeric" value={row.bps === "" ? "" : Number(row.bps) / 100} onChange={(event) => setRows(rows.map((current, currentIndex) => currentIndex === index ? { ...current, bps: event.target.value === "" ? "" : String(Number(event.target.value) * 100) } : current))} />
+                  <input aria-label={`Recipient ${index + 1} percentage`} inputMode="decimal" value={row.bps} onChange={(event) => setRows(rows.map((current, currentIndex) => currentIndex === index ? { ...current, bps: event.target.value } : current))} />
                   <span>%</span>
                 </label>
                 <button className="split-remove-button" type="button" aria-label={`Remove recipient ${index + 1}`} disabled={rows.length === 1} onClick={() => setRows(rows.filter((_, currentIndex) => currentIndex !== index))}>
@@ -433,12 +441,12 @@ export function SplitCalculator() {
             ))}
           </div>
 
-          <button className="button outline split-add-button" type="button" disabled={rows.length >= 5} onClick={() => setRows([...rows, { name: "Recipient", bps: "0" }])}>
+          <button className="button outline split-add-button" type="button" disabled={rows.length >= 5} onClick={() => setRows([...rows, { label: "", wallet: "", bps: "0" }])}>
             <FiPlus aria-hidden="true" /> Add recipient <span>{rows.length}/5</span>
           </button>
           <div className="split-rules-note">
             <FiInfo aria-hidden="true" />
-            <p><strong>Allocation rules</strong>100 BPS = 1%. Total must equal 10,000 BPS. Fractional base units are rounded down; the first recipient receives any remainder.</p>
+            <p><strong>Allocation rules</strong>Use 2–5 unique Solana wallets. Allocations must total 100%. Amounts use base units; any remainder is assigned deterministically to the first recipient.</p>
           </div>
         </section>
 
@@ -463,28 +471,42 @@ export function SplitCalculator() {
             <>
               <div className="split-total-summary">
                 <div><span>Total payment</span><strong>{amount || "0"} <small>{asset}</small></strong></div>
-                <span><FiCheckCircle aria-hidden="true" /> {rows.length} destinations</span>
+                <span><FiCheckCircle aria-hidden="true" /> {recipients.length} destinations</span>
               </div>
               <div className="allocation-bar" role="img" aria-label={`Allocation split totaling ${totalLabel}`}>
-                {rows.map((row, index) => <span className={`split-segment split-segment-${index}`} key={index} style={{ width: `${Number(row.bps) / 100}%` }} />)}
+                {recipients.map((recipient, index) => <span className={`split-segment split-segment-${index}`} key={recipient.wallet} style={{ width: `${recipient.bps / 100}%` }} />)}
               </div>
               <div className="split-allocation-list">
-                {rows.map((row, index) => (
-                  <div className={`split-allocation-item split-allocation-item-${index}`} key={index}>
-                    <span className="split-allocation-label"><i aria-hidden="true" /><span><strong>{row.name || `Recipient ${index + 1}`}</strong><small>{Number(row.bps) / 100}% allocation</small></span></span>
+                {recipients.map((recipient, index) => (
+                  <div className={`split-allocation-item split-allocation-item-${index}`} key={recipient.wallet}>
+                    <span className="split-allocation-label"><i aria-hidden="true" /><span><strong>{recipient.label}</strong><small>{recipient.wallet.slice(0, 4)}…{recipient.wallet.slice(-4)} · {recipient.bps / 100}% allocation</small></span></span>
                     <strong>{displayUnits(values[index], ASSETS[asset].decimals)} {asset}</strong>
                   </div>
                 ))}
               </div>
             </>
           )}
-
-          <div className="split-planned-note">
-            <FiInfo aria-hidden="true" />
-            <div><strong>Planned settlement</strong><p>Split settlement is planned. Standard SOL and USDC payments must pass real Devnet acceptance tests before live split flows are enabled.</p></div>
-          </div>
+          <button className="button wide split-review-button" type="button" disabled={Boolean(error)} onClick={() => setStep("review")}>Continue to wallet & review <FiArrowRight aria-hidden="true" /></button>
         </section>
       </div>
+      ) : (
+        <section className="panel split-review-panel" aria-labelledby="split-review-title">
+          <div className="split-panel-header">
+            <div className="split-panel-title">
+              <span className="split-panel-icon split-panel-icon-preview"><FiCheckCircle aria-hidden="true" /></span>
+              <div><span className="split-kicker">FINAL CHECK</span><h2 id="split-review-title">Review your split</h2></div>
+            </div>
+            <span className="badge split-preview-badge">DEVNET</span>
+          </div>
+          <div className="split-review-summary"><span>Total</span><strong>{amount} {asset}</strong><span>{recipients.length} recipients</span></div>
+          <div className="split-allocation-list split-review-list">
+            {recipients.map((recipient, index) => <div className={`split-allocation-item split-allocation-item-${index}`} key={recipient.wallet}><span className="split-allocation-label"><i aria-hidden="true" /><span><strong>{recipient.label}</strong><small>{recipient.wallet}</small></span></span><strong>{displayUnits(values[index], ASSETS[asset].decimals)} {asset}</strong></div>)}
+          </div>
+          <div className="split-review-wallet"><div><strong>Connect payer wallet</strong><p>The payer signs once. The signed transaction must include every displayed destination and amount.</p></div><WalletButton session={wallet} onChange={setWallet} /></div>
+          <div className="split-planned-note"><FiInfo aria-hidden="true" /><div><strong>Atomic settlement is not enabled on this deployment</strong><p>Pay & Split remains locked until the secure split backend is connected and verified against real Devnet transfers. No transaction will be prepared or signed from this screen.</p></div></div>
+          <div className="split-review-actions"><button className="button outline" type="button" onClick={() => setStep("configure")}>Back to edit</button><button className="button" type="button" disabled title="Atomic settlement is not enabled">Pay & Split <FiArrowRight aria-hidden="true" /></button></div>
+        </section>
+      )}
     </AppShell>
   );
 }

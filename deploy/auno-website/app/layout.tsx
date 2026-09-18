@@ -20,7 +20,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="light">
+    <html lang="en" className="light" data-theme="light" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: "try { const theme = localStorage.getItem('auno-theme'); if (theme === 'light' || theme === 'dark') { document.documentElement.dataset.theme = theme; document.documentElement.classList.remove('light', 'dark'); document.documentElement.classList.add(theme); } } catch {}" }} />
+      </head>
       <body className="antialiased">
         {children}
         <Toaster />

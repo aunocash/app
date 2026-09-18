@@ -34,4 +34,17 @@ assert.deepEqual(
   "split branches must remain visually distinct while using the connected routing palette",
 );
 
-console.log("PASS split routing uses a connected, distinct branch palette");
+assert.match(markup, /ANIMATED PREVIEW/);
+for (const recipient of [
+  ["Merchant", "80"],
+  ["Affiliate", "15"],
+  ["Treasury", "5"],
+]) {
+  assert.match(
+    markup,
+    new RegExp("<article class=\"sf-recipient[^>]*>[\\s\\S]*?" + recipient[0] + "[\\s\\S]*?>" + recipient[1] + "<"),
+    "the " + recipient[0] + " destination must be rendered with its allocated amount",
+  );
+}
+
+console.log("PASS split routing shows connected paths and exact destination cards");

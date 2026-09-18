@@ -568,14 +568,9 @@ export function SplitCalculator() {
             ))}
           </div>
 
-          <div style={{ display: "flex", gap: "10px", marginTop: "13px" }}>
-            <button className="button outline split-add-button" style={{ marginTop: 0 }} type="button" disabled={rows.length >= 5} onClick={() => setRows([...rows, { label: "", wallet: "", bps: "0" }])}>
-              <FiPlus aria-hidden="true" /> Add recipient <span>{rows.length}/5</span>
-            </button>
-            <button className="button outline" type="button" style={{ whiteSpace: "nowrap" }} onClick={() => setRows(DEMO_SPLIT_ROWS)}>
-              Demo wallets
-            </button>
-          </div>
+          <button className="button outline split-add-button" type="button" disabled={rows.length >= 5} onClick={() => setRows([...rows, { label: "", wallet: "", bps: "0" }])}>
+            <FiPlus aria-hidden="true" /> Add recipient <span>{rows.length}/5</span>
+          </button>
           <div className="split-rules-note">
             <FiInfo aria-hidden="true" />
             <p><strong>Allocation rules</strong>Use 2–5 unique Solana wallets. Allocations must total 100%. Amounts use base units; any remainder is assigned deterministically to the first recipient.</p>

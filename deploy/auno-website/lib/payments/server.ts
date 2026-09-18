@@ -3,7 +3,7 @@ import { ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInst
 import { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
-import { ASSETS, DEVNET_RPC, MEMO_PROGRAM, allocate, creationMessage, historyMessage, toBaseUnits, validateRecipients, type Asset, type PaymentIntent, type Recipient, type SplitRecipient } from './model';
+import { ASSETS, DEVNET_RPC, MEMO_PROGRAM, allocate, creationMessage, displayUnits, historyMessage, toBaseUnits, validateRecipients, type Asset, type PaymentIntent, type Recipient, type SplitRecipient } from './model';
 import { paymentPolicy } from './policy';
 
 export class PaymentError extends Error { constructor(message: string, public status = 400) { super(message); } }
@@ -181,6 +181,15 @@ async function buildTransaction(payment: PaymentIntent, payer: string, attemptId
   transaction.recentBlockhash = blockhash;
   return transaction;
 }
+async function assertPayerHasFeeBudget(c: Connection, payment: PaymentIntent, payer: string, transaction: Transaction) {
+  const fee = await c.getFeeForMessage(transaction.compileMessage(), 'confirmed');
+  if (fee.value === null) throw new PaymentError('Could not estimate the Solana network fee. Please retry.', 503);
+  const requiredLamports = BigInt(fee.value) + (payment.asset === 'SOL' ? BigInt(payment.amountBaseUnits) : 0n);
+  const availableLamports = BigInt(await c.getBalance(new PublicKey(payer), 'confirmed'));
+  if (availableLamports < requiredLamports) {
+    throw new PaymentError(`Insufficient SOL. This payment needs at least ${displayUnits(requiredLamports, ASSETS.SOL.decimals)} SOL including network fees; the connected wallet has ${displayUnits(availableLamports, ASSETS.SOL.decimals)} SOL.`, 422);
+  }
+}
 export async function preparePayment(req: Request, id: string) {
   sameOrigin(req);
   const body = await jsonBody(req);
@@ -198,6 +207,7 @@ export async function preparePayment(req: Request, id: string) {
   const secret = attemptToken();
   const block = await c.getLatestBlockhash('confirmed');
   const transaction = await buildTransaction(payment, payer, attemptId, block.blockhash);
+  await assertPayerHasFeeBudget(c, payment, payer, transaction);
   const messageHash = await sha256(transaction.serializeMessage());
   const now = Date.now();
   await db().prepare('INSERT INTO payment_attempts (id,payment_id,payer,message_hash,attempt_token_hash,last_valid_block_height,created_at,updated_at,status) VALUES (?,?,?,?,?,?,?,?,?)')

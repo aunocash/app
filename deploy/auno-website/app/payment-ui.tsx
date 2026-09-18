@@ -408,10 +408,16 @@ function SplitReceipt({ receipt }: { receipt: PaymentIntent }) {
   );
 }
 
+const DEMO_SPLIT_ROWS = [
+  { label: "Olivia Bennett", wallet: "nYiXPyxLyqcotGasSq7r594DVBy89FsRmZ6gAs5vfEv", bps: "80" },
+  { label: "Noah Williams", wallet: "GKgW2Ns9g4f5aMxyWjbpY6MW7xDm8TG1Rm4uAAKmexEA", bps: "15" },
+  { label: "Ava Mitchell", wallet: "9PqcYh9ftXWYNC9TeBXdPU5KqERrVb44rYCHPAK8WkK2", bps: "5" },
+];
+
 export function SplitCalculator() {
   const [amount, setAmount] = useState("100");
   const [asset, setAsset] = useState<Asset>("USDC");
-  const [rows, setRows] = useState([{ label: "Olivia Bennett", wallet: "", bps: "80" }, { label: "Noah Williams", wallet: "", bps: "15" }, { label: "Ava Mitchell", wallet: "", bps: "5" }]);
+  const [rows, setRows] = useState(DEMO_SPLIT_ROWS);
   const [step, setStep] = useState<"configure" | "review">("configure");
   const [wallet, setWallet] = useState<WalletSession | null>(null);
   const [settling, setSettling] = useState(false);
@@ -426,7 +432,12 @@ export function SplitCalculator() {
     error = errorText(nextError);
   }
 
-  const totalPercent = recipients.reduce((total, recipient) => total + recipient.bps, 0) / 100;
+  let enteredTotalPercent = 0;
+  for (const row of rows) {
+    const parsed = parseFloat(row.bps);
+    if (Number.isFinite(parsed)) enteredTotalPercent += parsed;
+  }
+  const totalPercent = error && recipients.length === 0 ? enteredTotalPercent : recipients.reduce((total, recipient) => total + recipient.bps, 0) / 100;
   const totalLabel = Number.isFinite(totalPercent) ? `${totalPercent.toFixed(2).replace(/\.00$/, "")} %` : "—";
 
   async function payAndSplit(now: number) {
@@ -557,9 +568,14 @@ export function SplitCalculator() {
             ))}
           </div>
 
-          <button className="button outline split-add-button" type="button" disabled={rows.length >= 5} onClick={() => setRows([...rows, { label: "", wallet: "", bps: "0" }])}>
-            <FiPlus aria-hidden="true" /> Add recipient <span>{rows.length}/5</span>
-          </button>
+          <div style={{ display: "flex", gap: "10px", marginTop: "13px" }}>
+            <button className="button outline split-add-button" style={{ marginTop: 0 }} type="button" disabled={rows.length >= 5} onClick={() => setRows([...rows, { label: "", wallet: "", bps: "0" }])}>
+              <FiPlus aria-hidden="true" /> Add recipient <span>{rows.length}/5</span>
+            </button>
+            <button className="button outline" type="button" style={{ whiteSpace: "nowrap" }} onClick={() => setRows(DEMO_SPLIT_ROWS)}>
+              Demo wallets
+            </button>
+          </div>
           <div className="split-rules-note">
             <FiInfo aria-hidden="true" />
             <p><strong>Allocation rules</strong>Use 2–5 unique Solana wallets. Allocations must total 100%. Amounts use base units; any remainder is assigned deterministically to the first recipient.</p>
@@ -581,7 +597,7 @@ export function SplitCalculator() {
           {error ? (
             <div className="split-validation-state" role="status">
               <FiAlertCircle aria-hidden="true" />
-              <div><strong>Allocation needs attention</strong><p>Adjust the amount or recipient percentages to see the final split.</p></div>
+              <div><strong>Allocation needs attention</strong><p>{error}</p></div>
             </div>
           ) : (
             <>

@@ -17,6 +17,7 @@ import {
   FiSend,
   FiShield,
 } from "react-icons/fi";
+import { FaXTwitter } from "react-icons/fa6";
 import { SiSolana } from "react-icons/si";
 import { SplitFlow } from "./split-flow";
 
@@ -47,11 +48,11 @@ export function Brand() {
 
 export function Nav() {
   const [open, setOpen] = useState(false);
-  return <header className="nav"><Brand /><div className="nav-actions"><button className="menu" aria-label="Toggle navigation" aria-expanded={open} onClick={() => setOpen(!open)}>Menu</button></div><nav className={open ? "open" : ""}><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Docs</a><a href="/roadmap">Roadmap</a><a className="button small" href="/dashboard/create">Try on Devnet <LaunchIcon /></a></nav></header>;
+  return <header className="nav"><Brand /><div className="nav-actions"><button className="menu" aria-label="Toggle navigation" aria-expanded={open} onClick={() => setOpen(!open)}>Menu</button></div><nav className={open ? "open" : ""}><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Docs</a><a href="/roadmap">Roadmap</a><a className="social-link nav-social-link" href="https://x.com/aunocash" target="_blank" rel="noreferrer" aria-label="Follow AUNO on X"><FaXTwitter aria-hidden="true" /></a><a className="button small" href="/dashboard/create">Try on Devnet <LaunchIcon /></a></nav></header>;
 }
 
 export function Footer() {
-  return <footer><div><Brand /><p>Programmable Payments on Solana.</p></div><div><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Documentation</a><a href="/whitepaper">Whitepaper</a><a href="/roadmap">Roadmap</a></div><div className="footer-bottom"><span>© 2026 AUNO</span><span>Value in motion.</span><span>Designed for auno.cash</span></div></footer>;
+  return <footer><div><Brand /><p>Programmable Payments on Solana.</p></div><div><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Documentation</a><a href="/whitepaper">Whitepaper</a><a href="/roadmap">Roadmap</a><a className="social-link footer-social-link" href="https://x.com/aunocash" target="_blank" rel="noreferrer" aria-label="Follow AUNO on X"><FaXTwitter aria-hidden="true" /></a></div><div className="footer-bottom"><span>© 2026 AUNO</span><span>Value in motion.</span><span>Designed for auno.cash</span></div></footer>;
 }
 
 export function Flow() {

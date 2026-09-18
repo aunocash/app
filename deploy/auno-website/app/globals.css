@@ -2858,8 +2858,11 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
 }
 
 @media (max-width: 700px) {
-  .nav-actions { margin-left: auto; }
+.nav-actions { margin-left: auto; }
 }
+
+.social-link{display:inline-grid;place-items:center;width:34px;height:34px;border:1px solid var(--line);border-radius:50%;color:var(--muted);transition:color .2s,border-color .2s,background .2s,transform .2s}.social-link svg{width:15px;height:15px}.social-link:hover{color:var(--orange-ink);border-color:var(--orange);background:var(--orange-soft);transform:translateY(-1px)}.nav-social-link{margin-left:-8px}.footer-social-link{margin-top:-9px}
+@media(max-width:700px){.nav-social-link{margin-left:0}.footer-social-link{margin-top:0}}
 
 /* Graphite dashboard surfaces: neutral layers keep orange meaningful. */
 @media all {

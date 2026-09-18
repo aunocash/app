@@ -2159,6 +2159,13 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
     color: #c7d0dc;
   }
 
+  .doc-section pre {
+    border: 1px solid #2b333e;
+    background: #0e1218;
+    color: #c7d0dc;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .02);
+  }
+
   .final-cta {
     background: radial-gradient(ellipse at bottom, #352217, transparent 70%);
   }

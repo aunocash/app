@@ -44,6 +44,7 @@ next-env.d.ts
 /.codex/
 /outputs/
 /work/
+/.playwright-cli/
 
 !/.env.example
 /work-local-wrangler.json

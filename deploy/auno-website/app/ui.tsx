@@ -19,7 +19,6 @@ import {
 } from "react-icons/fi";
 import { SiSolana } from "react-icons/si";
 import { SplitFlow } from "./split-flow";
-import { ThemeToggle } from "./theme-toggle";
 
 /* Full-document navigation deliberately resets wallet state between payment surfaces. */
 const ActionArrow = () => <FiArrowRight className="inline-icon action-icon" aria-hidden="true" />;
@@ -48,7 +47,7 @@ export function Brand() {
 
 export function Nav() {
   const [open, setOpen] = useState(false);
-  return <header className="nav"><Brand /><div className="nav-actions"><ThemeToggle /><button className="menu" aria-label="Toggle navigation" aria-expanded={open} onClick={() => setOpen(!open)}>Menu</button></div><nav className={open ? "open" : ""}><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Docs</a><a href="/roadmap">Roadmap</a><a className="button small" href="/dashboard/create">Try on Devnet <LaunchIcon /></a></nav></header>;
+  return <header className="nav"><Brand /><div className="nav-actions"><button className="menu" aria-label="Toggle navigation" aria-expanded={open} onClick={() => setOpen(!open)}>Menu</button></div><nav className={open ? "open" : ""}><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Docs</a><a href="/roadmap">Roadmap</a><a className="button small" href="/dashboard/create">Try on Devnet <LaunchIcon /></a></nav></header>;
 }
 
 export function Footer() {

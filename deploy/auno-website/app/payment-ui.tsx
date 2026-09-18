@@ -62,12 +62,17 @@ function sameBytes(left: Uint8Array, right: Uint8Array) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+function paymentMessage(transaction: Transaction) {
+  transaction.recentBlockhash = "11111111111111111111111111111111";
+  return transaction.serializeMessage();
+}
+
 function assertPreparedTransaction(preparedTransaction: string, signedTransaction: string) {
   try {
     const prepared = Transaction.from(decodeTransaction(preparedTransaction));
     const signed = Transaction.from(decodeTransaction(signedTransaction));
     if (!signed.verifySignatures()) throw new Error("Your wallet did not attach a valid signature. Reconnect it and sign again.");
-    if (!sameBytes(prepared.serializeMessage(), signed.serializeMessage())) throw new Error("Your wallet changed the prepared transaction. Reconnect it, then start a new payment attempt.");
+    if (!sameBytes(paymentMessage(prepared), paymentMessage(signed))) throw new Error("Your wallet changed the prepared transaction. Reconnect it, then start a new payment attempt.");
   } catch (error) {
     if (error instanceof Error) throw error;
     throw new Error("Your wallet returned an unreadable signed transaction. Reconnect it and try again.");

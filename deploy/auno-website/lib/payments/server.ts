@@ -12,7 +12,10 @@ type Attempt = { id: string; payment_id: string; payer: string; message_hash: st
 const CANONICAL_BLOCKHASH = '11111111111111111111111111111111';
 const COMPUTE_BUDGET_PROGRAM = 'ComputeBudget111111111111111111111111111111';
 const MAX_COMPUTE_UNIT_LIMIT = 1_400_000;
-const MAX_COMPUTE_UNIT_PRICE_MICRO_LAMPORTS = 100_000n;
+const DEFAULT_COMPUTE_UNIT_LIMIT = 200_000n;
+const MAX_COMPUTE_HEAP_BYTES = 256 * 1024;
+const MAX_LOADED_ACCOUNTS_DATA_BYTES = 64 * 1024 * 1024;
+const MAX_PRIORITY_FEE_LAMPORTS = 10_000_000n;
 
 function runtime() { return env as unknown as Runtime; }
 function policy() { try { return paymentPolicy(runtime()); } catch { throw new PaymentError('Payment deployment settings are invalid.', 503); } }
@@ -76,16 +79,35 @@ function littleEndian(data: Uint8Array) {
 }
 function validateComputeBudget(transaction: Transaction) {
   const seen = new Set<number>();
+  let unitLimit = DEFAULT_COMPUTE_UNIT_LIMIT;
+  let unitPrice = 0n;
   for (const instruction of transaction.instructions) {
     if (instruction.programId.toBase58() !== COMPUTE_BUDGET_PROGRAM) continue;
     const data = Uint8Array.from(instruction.data);
     const kind = data[0];
     if (instruction.keys.length || seen.has(kind)) throw new PaymentError('Wallet added an invalid compute-budget instruction.', 422);
     seen.add(kind);
-    if (kind === 2 && data.length === 5 && littleEndian(data.slice(1)) <= BigInt(MAX_COMPUTE_UNIT_LIMIT)) continue;
-    if (kind === 3 && data.length === 9 && littleEndian(data.slice(1)) <= MAX_COMPUTE_UNIT_PRICE_MICRO_LAMPORTS) continue;
+    const value = littleEndian(data.slice(1));
+    if (kind === 0 && data.length === 9) {
+      const requestedUnits = littleEndian(data.slice(1, 5));
+      const requestedFee = littleEndian(data.slice(5));
+      if (!requestedUnits || requestedUnits > BigInt(MAX_COMPUTE_UNIT_LIMIT) || requestedFee > MAX_PRIORITY_FEE_LAMPORTS) throw new PaymentError('Wallet requested an excessive priority fee.', 422);
+      unitLimit = requestedUnits;
+      continue;
+    }
+    if (kind === 1 && data.length === 5 && value >= 32_768n && value <= BigInt(MAX_COMPUTE_HEAP_BYTES) && (value & (value - 1n)) === 0n) continue;
+    if (kind === 2 && data.length === 5 && value > 0n && value <= BigInt(MAX_COMPUTE_UNIT_LIMIT)) {
+      unitLimit = value;
+      continue;
+    }
+    if (kind === 3 && data.length === 9) {
+      unitPrice = value;
+      continue;
+    }
+    if (kind === 4 && data.length === 5 && value > 0n && value <= BigInt(MAX_LOADED_ACCOUNTS_DATA_BYTES)) continue;
     throw new PaymentError('Wallet requested unsupported compute or priority-fee settings.', 422);
   }
+  if ((unitLimit * unitPrice) / 1_000_000n > MAX_PRIORITY_FEE_LAMPORTS) throw new PaymentError('Wallet requested an excessive priority fee.', 422);
 }
 function attemptToken() {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
@@ -283,7 +305,7 @@ function checkInstructions(payment: PaymentIntent, attempt: Attempt, parsed: { t
   if (instructions.some((instruction) => !allowed.has(instruction.programId.toBase58()))) throw new PaymentError('Transaction includes an unexpected instruction.');
   const expectedCount = payment.asset === 'SOL' ? payment.recipients.length + 1 : payment.recipients.length * 2 + 1;
   const computeCount = instructions.filter((instruction) => instruction.programId.toBase58() === COMPUTE_BUDGET_PROGRAM).length;
-  if (instructions.length !== expectedCount + computeCount || computeCount > 2) throw new PaymentError('Transaction instruction count is invalid.');
+  if (instructions.length !== expectedCount + computeCount || computeCount > 4) throw new PaymentError('Transaction instruction count is invalid.');
   const signers = parsed.transaction.message.accountKeys.filter((key) => key.signer).map((key) => key.pubkey.toBase58());
   if (signers.length !== 1 || signers[0] !== payer || parsed.transaction.message.accountKeys[0]?.pubkey.toBase58() !== payer) throw new PaymentError('Transaction payer or signer set is invalid.');
   const memo = 'auno:' + payment.id + ':' + attempt.id;

@@ -35,7 +35,7 @@ type ProductFeature = {
 const productFeatures: ProductFeature[] = [
   { icon: FiSend, title: "Payment Links", description: "Share a request with a fixed amount and destination.", status: "DEVELOPER PREVIEW", href: "/dashboard/create" },
   { icon: FiCreditCard, title: "Checkout", description: "SOL and USDC wallet signing, with server verification.", status: "DEVELOPER PREVIEW", href: "/docs#checkout-flow" },
-  { icon: FiGitBranch, title: "Split Payments", description: "Calculate precise allocations before settlement.", status: "PLANNED", href: "/split" },
+  { icon: FiGitBranch, title: "Split Payments", description: "Calculate precise allocations before settlement.", status: "DEVELOPER PREVIEW", href: "/split" },
   { icon: FiLock, title: "Escrow", description: "Conditional release with explicit authority.", status: "PLANNED", href: "/roadmap" },
   { icon: FiCheckSquare, title: "Milestones", description: "Payments aligned with project deliverables.", status: "PLANNED", href: "/roadmap" },
   { icon: FiRefreshCw, title: "Subscriptions", description: "Recurring payments with wallet-aware consent.", status: "RESEARCH", href: "/roadmap" },

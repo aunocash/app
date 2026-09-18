@@ -10,6 +10,7 @@ assert.match(home, /Public Beta · Solana Devnet/);
 assert.match(home, /Test payment flows with SOL and USDC before mainnet release\./);
 assert.doesNotMatch(home, /Test tokens only/);
 assert.match(home, /Explore Split Payment/);
+assert.match(home, /title: "Split Payments", description: "Calculate precise allocations before settlement\.", status: "DEVELOPER PREVIEW", href: "\/split"/);
 assert.match(paymentUi, /label: "Split Payment"/);
 assert.doesNotMatch(paymentUi, /Split Calculator/);
 assert.match(paymentUi, /split-preview-badge[^>]*>.*?DEVNET/s);

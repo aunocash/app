@@ -2,8 +2,8 @@
 
 const recipients = [
   { amount: '80', role: 'Merchant', color: '#fd6c03', route: 'M300 204 C300 254 100 242 100 306' },
-  { amount: '15', role: 'Affiliate', color: '#e75e00', route: 'M300 204 L300 306' },
-  { amount: '5', role: 'Treasury', color: '#b94700', route: 'M300 204 C300 254 500 242 500 306' },
+  { amount: '15', role: 'Affiliate', color: '#526ea9', route: 'M300 204 L300 306' },
+  { amount: '5', role: 'Treasury', color: '#8874ad', route: 'M300 204 C300 254 500 242 500 306' },
 ];
 
 export function SplitFlow() {

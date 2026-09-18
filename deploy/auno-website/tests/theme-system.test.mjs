@@ -16,5 +16,8 @@ assert.equal(existsSync(new URL("../app/theme.ts", import.meta.url)), false);
 assert.doesNotMatch(styles, /AUNO themes: orange is the only accent/);
 assert.doesNotMatch(styles, /prefers-color-scheme: dark/);
 assert.match(styles, /@media all/);
+assert.match(styles, /Graphite dashboard surfaces/);
+assert.match(styles, /\.page-shell \.app-tabs\s*\{[^}]*background: #0f1114/);
+assert.match(styles, /\.page-shell \.panel,[\s\S]*?background: #121417/);
 
 console.log("PASS strict dark theme has no visible toggle or system preference listener");

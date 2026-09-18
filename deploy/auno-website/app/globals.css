@@ -2855,3 +2855,195 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
 @media (max-width: 700px) {
   .nav-actions { margin-left: auto; }
 }
+
+/* Graphite dashboard surfaces: neutral layers keep orange meaningful. */
+@media all {
+  .page-shell {
+    color: #f5f5f3;
+  }
+
+  .page-shell .app-tabs {
+    border-color: #292d33;
+    background: #0f1114;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .22);
+  }
+
+  .page-shell .app-tabs a {
+    color: #a5a8ad;
+  }
+
+  .page-shell .app-tabs a svg {
+    color: #858a92;
+  }
+
+  .page-shell .app-tabs a:hover {
+    border-color: #393e45;
+    background: #171a1f;
+    color: #f5f5f3;
+  }
+
+  .page-shell .app-tabs a.active {
+    border-color: #47413a;
+    background: #1a1d22;
+    color: #f5f5f3;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035);
+  }
+
+  .page-shell .app-tabs a.active svg {
+    color: #fd6c03;
+  }
+
+  .page-shell .panel,
+  .page-shell .split-workspace > .panel,
+  .page-shell .split-review-panel {
+    border-color: #292d33;
+    background: #121417;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, .2);
+  }
+
+  .page-shell .split-editor-panel,
+  .page-shell .split-preview-panel {
+    background: #121417;
+  }
+
+  .page-shell .split-panel-icon,
+  .page-shell .split-panel-icon-preview,
+  .page-shell .split-recipient-index,
+  .page-shell .split-recipient-row-1 .split-recipient-index,
+  .page-shell .split-recipient-row-2 .split-recipient-index {
+    border-color: #5a3821;
+    background: #21170f;
+    color: #ffb27d;
+  }
+
+  .page-shell .split-kicker,
+  .page-shell .split-field-label,
+  .page-shell .split-recipients-header,
+  .page-shell .split-total-summary > div > span,
+  .page-shell .split-total-summary small,
+  .page-shell .split-percent-field > span,
+  .page-shell .split-remove-button,
+  .page-shell .split-review-summary,
+  .page-shell .status {
+    color: #a5a8ad;
+  }
+
+  .page-shell .split-recipients-header,
+  .page-shell .split-allocation-item,
+  .page-shell .split-review-summary {
+    border-color: #292d33;
+  }
+
+  .page-shell input,
+  .page-shell select,
+  .page-shell textarea,
+  .page-shell .mock-input,
+  .page-shell .split-wallet-field input {
+    border-color: #30343a;
+    background: #0d0f12;
+    color: #f5f5f3;
+  }
+
+  .page-shell input::placeholder,
+  .page-shell textarea::placeholder {
+    color: #737880;
+  }
+
+  .page-shell input:focus,
+  .page-shell select:focus,
+  .page-shell textarea:focus,
+  .page-shell .split-wallet-field input:focus {
+    border-color: #fd6c03;
+    background: #101215;
+    box-shadow: 0 0 0 4px rgba(253, 108, 3, .16);
+  }
+
+  .page-shell .wallet-options,
+  .page-shell .wallet-option,
+  .page-shell .split-review-wallet {
+    border-color: #30343a;
+    background: #171a1f;
+    color: #f5f5f3;
+  }
+
+  .page-shell .wallet-option:hover:not(:disabled) {
+    border-color: #454a51;
+    background: #1c2025;
+  }
+
+  .page-shell .wallet-icon-fallback {
+    border-color: #45413d;
+    background: #21170f;
+    color: #ffb27d;
+  }
+
+  .page-shell .split-flow-steps li {
+    border-color: #30343a;
+    background: #171a1f;
+    color: #a5a8ad;
+  }
+
+  .page-shell .split-flow-steps li > span {
+    background: #23272d;
+    color: #c5c8cc;
+  }
+
+  .page-shell .split-flow-steps li.is-current {
+    border-color: #5a3821;
+    background: #21170f;
+    color: #f5f5f3;
+  }
+
+  .page-shell .split-flow-steps li.is-current > span,
+  .page-shell .split-flow-steps li.is-complete > span {
+    background: #fd6c03;
+    color: #0d0f12;
+  }
+
+  .page-shell .split-add-button {
+    border-color: #3a322b;
+    background: #171a1f;
+    color: #ffb27d;
+  }
+
+  .page-shell .split-add-button:hover:not(:disabled),
+  .page-shell .split-remove-button:hover:not(:disabled) {
+    border-color: #5a3821;
+    background: #21170f;
+    color: #ffb27d;
+  }
+
+  .page-shell .split-rules-note,
+  .page-shell .split-planned-note,
+  .page-shell .notice {
+    border-color: #4e3726;
+    background: #1c1713;
+    color: #d8c1ae;
+  }
+
+  .page-shell .split-rules-note strong,
+  .page-shell .split-planned-note strong {
+    color: #ffcfaa;
+  }
+
+  .page-shell .split-total-badge {
+    border-color: #5a3821;
+    background: #21170f;
+    color: #ffb27d;
+  }
+
+  .page-shell .allocation-bar {
+    border-color: #30343a;
+    background: #0d0f12;
+    box-shadow: none;
+  }
+
+  .page-shell .split-review-wallet strong,
+  .page-shell .split-review-summary strong {
+    color: #f5f5f3;
+  }
+
+  .page-shell :focus-visible {
+    outline-color: #fd6c03;
+  }
+}

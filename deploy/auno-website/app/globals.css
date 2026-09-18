@@ -3053,6 +3053,77 @@ input:focus,select:focus,textarea:focus{border-color:#ea985a;outline-color:var(-
   }
 }
 
+/* Charcoal palette normalization: orange is the only active product accent. */
+@media all {
+  :root {
+    --blue: #fd6c03;
+  }
+
+  .split-hub,
+  .sf-hub,
+  .sf-coin,
+  .wallet-icon-fallback {
+    border-color: #3b3f46;
+    background: #1a1d22;
+    color: #d6d2ca;
+  }
+
+  .split-panel-icon-preview,
+  .split-recipient-row-1 .split-recipient-index,
+  .split-recipient-row-2 .split-recipient-index {
+    border-color: #5a3821;
+    background: #21170f;
+    color: #ffb27d;
+  }
+
+  .split-flow-steps li {
+    border-color: #30343a;
+    background: #171a1f;
+    color: #a5a8ad;
+  }
+
+  .split-flow-steps li > span {
+    background: #23272d;
+    color: #c5c8cc;
+  }
+
+  .split-flow-steps li.is-current {
+    border-color: #5a3821;
+    background: #21170f;
+    color: #f5f5f3;
+  }
+
+  .split-flow-steps li.is-current > span,
+  .split-flow-steps li.is-complete > span {
+    background: #fd6c03;
+    color: #0d0f12;
+  }
+
+  .split-wallet-field input,
+  .split-review-wallet {
+    border-color: #30343a;
+    background: #171a1f;
+    color: #f5f5f3;
+  }
+
+  .roadmap-flow-step-active {
+    border-color: #7d5632;
+    box-shadow: 0 0 0 3px rgba(253, 108, 3, .16);
+  }
+
+  .roadmap-node-index svg,
+  .roadmap-capabilities svg {
+    color: #ffb27d;
+  }
+
+  .roadmap-status-developer-preview,
+  .roadmap-status-in-development {
+    border-color: #5a3821;
+    background: #21170f;
+    color: #ffb27d;
+  }
+}
+
 /* Docs portal responsive shell: keep navigation, search, and rails in bounds. */
 @media (max-width: 1280px) {
   .docs-portal-header {

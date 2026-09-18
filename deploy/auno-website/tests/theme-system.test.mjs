@@ -19,5 +19,7 @@ assert.match(styles, /@media all/);
 assert.match(styles, /Graphite dashboard surfaces/);
 assert.match(styles, /\.page-shell \.app-tabs\s*\{[^}]*background: #0f1114/);
 assert.match(styles, /\.page-shell \.panel,[\s\S]*?background: #121417/);
+assert.match(styles, /Charcoal palette normalization: orange is the only active product accent/);
+assert.match(styles, /\.roadmap-status-developer-preview,[\s\S]*?background: #21170f/);
 
 console.log("PASS strict dark theme has no visible toggle or system preference listener");

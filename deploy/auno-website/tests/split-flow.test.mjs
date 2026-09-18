@@ -30,8 +30,8 @@ const routeColors = Array.from(
 
 assert.deepEqual(
   routeColors,
-  ["#fd6c03", "#526ea9", "#8874ad"],
-  "split branches must remain visually distinct while using the connected routing palette",
+  ["#fd6c03", "#fd6c03", "#fd6c03"],
+  "split branches must use the single orange product accent",
 );
 
 assert.match(markup, /ANIMATED PREVIEW/);

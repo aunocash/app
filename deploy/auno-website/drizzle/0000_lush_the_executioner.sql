@@ -1,4 +1,4 @@
-CREATE TABLE `attempts` (
+CREATE TABLE IF NOT EXISTS `attempts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`payment_id` text NOT NULL,
 	`payer` text NOT NULL,
@@ -10,8 +10,8 @@ CREATE TABLE `attempts` (
 	`status` text NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `attempt_payment_idx` ON `attempts` (`payment_id`);--> statement-breakpoint
-CREATE TABLE `payments` (
+CREATE INDEX IF NOT EXISTS `attempt_payment_idx` ON `attempts` (`payment_id`);--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `payments` (
 	`id` text PRIMARY KEY NOT NULL,
 	`merchant_wallet` text NOT NULL,
 	`title` text NOT NULL,
@@ -33,6 +33,6 @@ CREATE TABLE `payments` (
 	`lease_until` integer
 );
 --> statement-breakpoint
-CREATE INDEX `merchant_created_idx` ON `payments` (`merchant_wallet`,`created_at`);--> statement-breakpoint
-CREATE UNIQUE INDEX `creation_key_idx` ON `payments` (`creation_key`);--> statement-breakpoint
-CREATE UNIQUE INDEX `signature_unique_idx` ON `payments` (`transaction_signature`);
+CREATE INDEX IF NOT EXISTS `merchant_created_idx` ON `payments` (`merchant_wallet`,`created_at`);--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS `creation_key_idx` ON `payments` (`creation_key`);--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS `signature_unique_idx` ON `payments` (`transaction_signature`);

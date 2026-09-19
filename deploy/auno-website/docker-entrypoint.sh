@@ -57,6 +57,11 @@ umask 077
   write_runtime_value SOLANA_NETWORK "$SOLANA_NETWORK"
   write_runtime_value SOLANA_RPC_URL "$SOLANA_RPC_URL"
   write_runtime_value AUNO_PUBLIC_ORIGIN "$AUNO_PUBLIC_ORIGIN"
+  if [ "$SOLANA_NETWORK" = "devnet" ]; then
+    write_runtime_value AUNO_DEVNET_SPLITS_ENABLED "${AUNO_DEVNET_SPLITS_ENABLED:-false}"
+    write_runtime_value AUNO_VERIFIER_BATCH_SIZE "${AUNO_VERIFIER_BATCH_SIZE:-25}"
+    write_runtime_value AUNO_VERIFIER_TOKEN "${AUNO_VERIFIER_TOKEN:-}"
+  fi
   if [ "$SOLANA_NETWORK" = "mainnet-beta" ]; then
     write_runtime_value AUNO_MAINNET_ENABLED "${AUNO_MAINNET_ENABLED:-false}"
     write_runtime_value AUNO_ALLOWED_MERCHANTS "$AUNO_ALLOWED_MERCHANTS"

@@ -3,9 +3,9 @@
 import { WalletIcon } from "@web3icons/react/dynamic";
 import { Transaction } from "@solana/web3.js";
 import { Wallet } from "lucide-react";
-import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers } from "react-icons/fi";
+import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiCopy, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers } from "react-icons/fi";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { DevnetOnlyRibbon, Footer, Nav } from "./ui";
 import {
@@ -473,7 +473,7 @@ function SplitReceipt({ receipt }: { receipt: PaymentIntent }) {
           </div>
         ))}
       </div>
-      <a className="button small" href={explorer(receipt.transactionSignature!)} target="_blank" rel="noreferrer">
+      <a className="button small" href={explorer(receipt.transactionSignature!, receipt.network)} target="_blank" rel="noreferrer">
         View verified transaction <FiExternalLink className="inline-icon action-icon" aria-hidden="true" />
       </a>
     </section>
@@ -557,25 +557,31 @@ export function SplitCalculator() {
     }
   }
 
-  async function verifySplit() {
+  const verifySplit = useCallback(async (quiet = false) => {
     if (!settlement) return;
     setSettling(true);
-    const notification = toast.loading("Checking Devnet finalization…");
+    const notification = quiet ? undefined : toast.loading("Checking Devnet finalization…");
     try {
       const result = await api<PaymentIntent | { status: string; signature?: string }>(`/api/payments/${settlement.paymentId}/verify`, { attemptId: settlement.attemptId, attemptToken: settlement.attemptToken });
       const receipt = result.status === "PAID" && "recipients" in result ? result : undefined;
       const verifiedSignature = "transactionSignature" in result ? result.transactionSignature : result.signature;
       setSettlement((current) => current ? { ...current, status: result.status, signature: verifiedSignature || current.signature, error: undefined, receipt } : current);
-      if (receipt) toast.success("Split settled. Your verified receipt is ready.", { id: notification });
-      else toast.info("Transaction is still confirming. Check again shortly.", { id: notification });
+      if (receipt && !quiet) toast.success("Split settled. Your verified receipt is ready.", { id: notification });
+      else if (!quiet) toast.info("Transaction is still confirming. Check again shortly.", { id: notification });
     } catch (nextError) {
       const message = errorText(nextError);
       setSettlement((current) => current ? { ...current, error: message } : current);
-      toast.error("Split verification failed.", { id: notification, description: message, duration: 6_000 });
+      if (!quiet) toast.error("Split verification failed.", { id: notification, description: message, duration: 6_000 });
     } finally {
       setSettling(false);
     }
-  }
+  }, [settlement]);
+
+  useEffect(() => {
+    if (!settlement || settlement.receipt || settlement.error || settling || !["SUBMITTED", "CONFIRMING"].includes(settlement.status)) return;
+    const timer = window.setTimeout(() => void verifySplit(true), 10_000);
+    return () => window.clearTimeout(timer);
+  }, [settlement, settling, verifySplit]);
 
   return (
     <AppShell title="One payment. Many destinations." subtitle="Set exact destinations, review the split, then sign one atomic Devnet transaction when settlement is enabled.">
@@ -710,13 +716,59 @@ export function SplitCalculator() {
                 <strong>{settlement.relayMessage || settlement.error ? "Split needs attention" : "Split transaction submitted"}</strong>
                 <p className="break"><a className="text-link" href={explorer(settlement.signature)} target="_blank" rel="noreferrer">{settlement.signature}</a></p>
                 <p>Finalization status: {settlement.status}</p>
+                <div className="split-receipt-link">
+                  <span>Receipt URL</span>
+                  <a className="text-link" href={`/receipt/${settlement.paymentId}`}>{`${window.location.origin}/receipt/${settlement.paymentId}`}</a>
+                  <button className="icon-button" type="button" aria-label="Copy receipt URL" onClick={async () => {
+                    await navigator.clipboard.writeText(`${window.location.origin}/receipt/${settlement.paymentId}`);
+                    toast.success("Receipt URL copied.");
+                  }}><FiCopy aria-hidden="true" /></button>
+                </div>
+                <p>The receipt is public after finalization. AUNO checks it automatically while this page is open.</p>
                 {settlement.relayMessage && <p>{settlement.relayMessage}</p>}
                 {settlement.error && <p>{settlement.error}</p>}
-                <button className="button small" type="button" disabled={settling} onClick={verifySplit}>Check finalization</button>
+                <button className="button small" type="button" disabled={settling} onClick={() => verifySplit()}>Check finalization</button>
               </div>
             )
           )}
           <div className="split-review-actions"><button className="button outline" type="button" disabled={settling} onClick={() => setStep("configure")}>Back to edit</button><button className="button" type="button" disabled={settling || Boolean(error) || !wallet} onClick={() => payAndSplit(Date.now())}>{settling ? "Preparing split…" : <>Pay & Split <FiArrowRight aria-hidden="true" /></>}</button></div>
+        </section>
+      )}
+    </AppShell>
+  );
+}
+
+export function PublicSplitReceipt({ id }: { id: string }) {
+  const [receipt, setReceipt] = useState<PaymentIntent | null>(null);
+  const [message, setMessage] = useState("Loading finalized Devnet receipt…");
+
+  useEffect(() => {
+    let active = true;
+    async function loadReceipt() {
+      try {
+        const next = await api<PaymentIntent>(`/api/public/payments/${id}/receipt`);
+        if (active) {
+          setReceipt(next);
+          setMessage("");
+        }
+      } catch (nextError) {
+        if (active) setMessage(errorText(nextError));
+      }
+    }
+    void loadReceipt();
+    const timer = window.setInterval(() => void loadReceipt(), 10_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [id]);
+
+  return (
+    <AppShell title="Verified split receipt" subtitle="Public, finalized Devnet settlement details.">
+      {receipt ? <SplitReceipt receipt={receipt} /> : (
+        <section className="notice" role="status" aria-live="polite">
+          <strong>Receipt not available yet</strong>
+          <p>{message || "The split transaction is still being finalized. This page refreshes automatically."}</p>
         </section>
       )}
     </AppShell>

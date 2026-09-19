@@ -32,12 +32,13 @@ ENV NODE_ENV=production \
 COPY --from=build /app /app
 COPY docker-entrypoint.sh /usr/local/bin/auno-entrypoint
 COPY docker-mainnet-verifier.sh /usr/local/bin/auno-mainnet-verifier
+COPY docker-devnet-verifier.sh /usr/local/bin/auno-devnet-verifier
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && chmod +x /usr/local/bin/auno-entrypoint /usr/local/bin/auno-mainnet-verifier \
+    && chmod +x /usr/local/bin/auno-entrypoint /usr/local/bin/auno-mainnet-verifier /usr/local/bin/auno-devnet-verifier \
     && mkdir -p /app/.wrangler/state /app/.sites-runtime
 
 EXPOSE 3000

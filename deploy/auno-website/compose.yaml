@@ -9,6 +9,9 @@ services:
       PORT: "3000"
       SOLANA_NETWORK: ${SOLANA_NETWORK:-devnet}
       SOLANA_RPC_URL: ${SOLANA_RPC_URL:?Set SOLANA_RPC_URL to a dedicated Solana Devnet RPC endpoint}
+      AUNO_DEVNET_SPLITS_ENABLED: ${AUNO_DEVNET_SPLITS_ENABLED:-false}
+      AUNO_VERIFIER_BATCH_SIZE: ${AUNO_VERIFIER_BATCH_SIZE:-25}
+      AUNO_VERIFIER_TOKEN: ${AUNO_VERIFIER_TOKEN:-}
     expose:
       - "3000"
     volumes:
@@ -23,6 +26,21 @@ services:
       timeout: 5s
       retries: 20
       start_period: 30s
+
+  verifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    entrypoint: ["/usr/local/bin/auno-devnet-verifier"]
+    environment:
+      SOLANA_NETWORK: ${SOLANA_NETWORK:-devnet}
+      AUNO_APP_ORIGIN: http://web:3000
+      AUNO_VERIFIER_TOKEN: ${AUNO_VERIFIER_TOKEN:-}
+      AUNO_VERIFIER_POLL_MS: ${AUNO_VERIFIER_POLL_MS:-30000}
+    depends_on:
+      web:
+        condition: service_healthy
 
 volumes:
   auno-website-d1:

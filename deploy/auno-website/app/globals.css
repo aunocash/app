@@ -3808,3 +3808,50 @@ td,
     transform: none;
   }
 }
+
+.page-shell .split-receipt-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #3b3028;
+  border-radius: 10px;
+  background: #121315;
+  color: #b9ad9f;
+  font-size: 12px;
+}
+
+.page-shell .split-receipt-link a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-shell .split-receipt-link .icon-button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #ffb27d;
+  cursor: pointer;
+}
+
+.page-shell .split-receipt-link .icon-button:hover {
+  background: #2b1c12;
+  color: #ffd3b1;
+}
+
+@media (max-width: 560px) {
+  .page-shell .split-receipt-link {
+    grid-template-columns: 1fr auto;
+  }
+
+  .page-shell .split-receipt-link > span {
+    grid-column: 1 / -1;
+  }
+}

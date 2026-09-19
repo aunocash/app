@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInstruction, createTransferCheckedInstruction, getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import { Connection, Message, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
 import { ASSETS, NETWORKS, MEMO_PROGRAM, allocate, creationMessage, displayUnits, historyMessage, toBaseUnits, validateRecipients, type Asset, type NetworkId, type PaymentIntent, type Recipient, type SplitRecipient } from './model';
@@ -150,6 +150,33 @@ function validateComputeBudget(transaction: Transaction) {
     throw new PaymentError('Wallet requested unsupported compute or priority-fee settings.', 422);
   }
   if ((unitLimit * unitPrice) / 1_000_000n > MAX_PRIORITY_FEE_LAMPORTS) throw new PaymentError('Wallet requested an excessive priority fee.', 422);
+}
+type SignedPaymentTransaction = { transaction: Transaction; signature: Uint8Array; serialized: Uint8Array };
+function transactionFromMessage(message: Parameters<typeof TransactionMessage.decompile>[0]) {
+  const decompiled = TransactionMessage.decompile(message);
+  const transaction = new Transaction({ feePayer: decompiled.payerKey, recentBlockhash: decompiled.recentBlockhash });
+  transaction.add(...decompiled.instructions);
+  return transaction;
+}
+function decodeSignedPaymentTransaction(encoded: string): SignedPaymentTransaction {
+  const serialized = Uint8Array.from(Buffer.from(encoded, 'base64'));
+  try {
+    const versioned = VersionedTransaction.deserialize(serialized);
+    if (versioned.version === 0) {
+      const message = versioned.message;
+      const signature = versioned.signatures[0];
+      const payer = message.staticAccountKeys[0];
+      if (message.addressTableLookups.length || message.header.numRequiredSignatures !== 1 || versioned.signatures.length !== 1 || !signature || !payer || !nacl.sign.detached.verify(message.serialize(), signature, payer.toBytes())) throw new PaymentError('Wallet returned an invalid signed transaction.', 422);
+      return { transaction: transactionFromMessage(message), signature, serialized };
+    }
+    if (versioned.version !== 'legacy') throw new PaymentError('Wallet returned an unsupported transaction version.', 422);
+    const transaction = Transaction.from(Buffer.from(serialized));
+    if (!transaction.verifySignatures() || !transaction.signature) throw new PaymentError('Wallet returned an invalid signed transaction.', 422);
+    return { transaction, signature: Uint8Array.from(transaction.signature), serialized };
+  } catch (error) {
+    if (error instanceof PaymentError) throw error;
+    throw new PaymentError('Wallet returned an invalid signed transaction.', 422);
+  }
 }
 function attemptToken() {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
@@ -338,15 +365,16 @@ export async function submitPayment(req: Request, id: string) {
   assertSettlementEnabled(payment);
   if (payment.status !== 'ACTIVE') throw new PaymentError('This payment is no longer available.', 409);
   if (attempt.status !== 'PREPARED') throw new PaymentError('This attempt is no longer ready for submission.', 409);
-  let transaction: Transaction;
+  let signed: SignedPaymentTransaction;
   try {
-    transaction = Transaction.from(Buffer.from(body.transaction, 'base64'));
-    if (!transaction.verifySignatures() || await sha256(paymentMessage(transaction)) !== attempt.message_hash) throw new Error();
-    validateComputeBudget(transaction);
+    signed = decodeSignedPaymentTransaction(body.transaction);
+    if (await sha256(paymentMessage(signed.transaction)) !== attempt.message_hash) throw new Error();
+    validateComputeBudget(signed.transaction);
   } catch (error) {
     if (error instanceof PaymentError) throw error;
     throw new PaymentError('Signed transaction differs from the prepared payment.', 422);
   }
+  const transaction = signed.transaction;
   const c = connection();
   await assertNetwork(c);
   if (await c.getBlockHeight('confirmed') > attempt.last_valid_block_height) {
@@ -354,10 +382,10 @@ export async function submitPayment(req: Request, id: string) {
     throw new PaymentError('This prepared transaction has expired. Start a fresh attempt.', 409);
   }
   await assertPayerHasFeeBudget(c, payment, attempt.payer, transaction);
-  const signature = bs58.encode(transaction.signature!);
+  const signature = bs58.encode(signed.signature);
   const claim = await db().prepare("UPDATE payment_attempts SET signature=?,status='SUBMITTED',updated_at=? WHERE id=? AND status='PREPARED'").bind(signature, Date.now(), attempt.id).run();
   if (!claim.meta.changes) throw new PaymentError('This attempt has already been submitted.', 409);
-  try { await c.sendRawTransaction(transaction.serialize(), { skipPreflight: false, maxRetries: 2 }); }
+  try { await c.sendRawTransaction(signed.serialized, { skipPreflight: false, maxRetries: 2 }); }
   catch (error) { logEvent('payment_submission_uncertain', { paymentId: id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment) }); return { attemptId: attempt.id, signature, status: 'SUBMITTED', message: relayFailureMessage(error) }; }
   logEvent('payment_submitted', { paymentId: id, attemptId: attempt.id, signature, recipientCount: payment.recipients.length, split: isSplitPayment(payment) });
   return { attemptId: attempt.id, signature, status: 'SUBMITTED' };
@@ -429,7 +457,7 @@ async function verifyAttempt(payment: PaymentIntent, attempt: Attempt) {
   }
   const raw = await c.getTransaction(attempt.signature, { commitment: 'finalized', maxSupportedTransactionVersion: 0 });
   let finalized: Transaction | null = null;
-  try { if (raw?.transaction) finalized = Transaction.populate(raw.transaction.message as Message, raw.transaction.signatures); } catch { /* rejected below */ }
+  try { if (raw?.transaction) finalized = transactionFromMessage(raw.transaction.message); } catch { /* rejected below */ }
   if (!finalized || await sha256(paymentMessage(finalized)) !== attempt.message_hash) {
     await db().prepare("UPDATE payment_attempts SET status='REJECTED',updated_at=? WHERE id=? AND status IN ('SUBMITTED','CONFIRMING')").bind(Date.now(), attempt.id).run();
     logEvent('payment_rejected', { paymentId: payment.id, attemptId: attempt.id });

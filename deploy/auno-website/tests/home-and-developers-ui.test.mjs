@@ -9,6 +9,7 @@ const mainnetSite = fs.readFileSync(new URL("../app/mainnet-site.tsx", import.me
 const siteNetwork = fs.readFileSync(new URL("../lib/site-network.ts", import.meta.url), "utf8");
 const homePage = fs.readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
 const splitPage = fs.readFileSync(new URL("../app/split/page.tsx", import.meta.url), "utf8");
+const payPage = fs.readFileSync(new URL("../app/pay/[id]/page.tsx", import.meta.url), "utf8");
 
 assert.match(home, /Public Beta · Solana Devnet/);
 assert.match(home, /Test payment flows with SOL and USDC before mainnet release\./);
@@ -20,10 +21,16 @@ assert.match(home, /Copy AUNO contract address/);
 assert.match(home, /className="nav-inner"/);
 assert.match(home, /title: "Split Payments", description: "Calculate precise allocations before settlement\.", status: "DEVELOPER PREVIEW", href: "\/split"/);
 assert.match(paymentUi, /label: "Split Payment"/);
+assert.match(paymentUi, /function useBrowserNetwork\(\)/);
+assert.match(paymentUi, /useSyncExternalStore/);
 assert.doesNotMatch(paymentUi, /Split Calculator/);
 assert.match(paymentUi, /split-preview-badge[^>]*>.*?DEVNET/s);
 assert.doesNotMatch(paymentUi, /split-preview-badge[^>]*>.*?PREVIEW ONLY/s);
-assert.match(paymentUi, /assertPreparedTransaction/);
+assert.doesNotMatch(paymentUi, /assertPreparedTransaction\(prepared\.transaction, signed\)/);
+assert.match(payPage, /from \"..\/..\/checkout\"/);
+assert.doesNotMatch(paymentUi, /export function Checkout/);
+assert.match(paymentUi, /import \{ WalletIcon \} from \"@web3icons\/react\/dynamic\"/);
+assert.doesNotMatch(paymentUi, /from \"next\/dynamic\"/);
 assert.match(paymentUi, /wallet: ""/);
 assert.match(paymentUi, /View verified transaction/);
 

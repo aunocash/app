@@ -135,28 +135,6 @@ function paymentMessage(transaction: Transaction) {
   return new TextEncoder().encode(JSON.stringify(message));
 }
 async function preparedMessageHash(transaction: Transaction) { return `v4:${await sha256(paymentMessage(transaction))}`; }
-const JITO_TIP_ACCOUNTS = new Set([
-  '96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5',
-  'HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe',
-  'Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY',
-  'ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49',
-  'DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh',
-  'ADuUkR4vqLUMWXxW9gh6D6L8pivKeVBBWhHW7YPBUAQB',
-  'DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL',
-  '3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT',
-]);
-function isSafeWalletExtra(instruction: TransactionInstruction, payer: string): boolean {
-  const programId = instruction.programId.toBase58();
-  if (programId === MEMO_PROGRAM) return true;
-  if (programId !== SystemProgram.programId.toBase58()) return false;
-  const data = Uint8Array.from(instruction.data);
-  if (data.length !== 12) return false;
-  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-  if (view.getUint32(0, true) !== 2) return false;
-  if (instruction.keys.length < 2) return false;
-  if (instruction.keys[0].pubkey.toBase58() !== payer) return false;
-  return JITO_TIP_ACCOUNTS.has(instruction.keys[1].pubkey.toBase58());
-}
 async function matchesPreparedMessage(payment: PaymentIntent, attempt: Attempt, transaction: Transaction) {
   if (transaction.feePayer?.toBase58() !== attempt.payer) return false;
   const expected = await buildTransaction(payment, attempt.payer, attempt.id, CANONICAL_BLOCKHASH);
@@ -171,7 +149,7 @@ async function matchesPreparedMessage(payment: PaymentIntent, attempt: Attempt, 
       data: bs58.encode(instruction.data),
     });
     if (expectedSigs.has(signature)) { actualSigs.add(signature); continue; }
-    if (!isSafeWalletExtra(instruction, attempt.payer)) return false;
+    return false;
   }
   void recipientAddresses;
   for (const signature of expectedSigs) {
@@ -544,10 +522,12 @@ async function checkInstructions(payment: PaymentIntent, attempt: Attempt, parse
   const signers = parsed.transaction.message.accountKeys.filter((key) => key.signer).map((key) => key.pubkey.toBase58());
   if (signers.length !== 1 || signers[0] !== payer || parsed.transaction.message.accountKeys[0]?.pubkey.toBase58() !== payer) throw new PaymentError('Transaction payer or signer set is invalid.');
   const memo = 'auno:' + payment.id + ':' + attempt.id;
-  if (instructions.filter((instruction) => instruction.programId.toBase58() === MEMO_PROGRAM && instruction.parsed === memo).length < 1) throw new PaymentError('Payment reference is missing.');
+  const memos = instructions.filter((instruction) => instruction.programId.toBase58() === MEMO_PROGRAM);
+  if (memos.length !== 1 || memos[0].parsed !== memo) throw new PaymentError('Payment reference is missing or invalid.');
   const transfers = instructions.filter((instruction) => instruction.programId.toBase58() === (payment.asset === 'SOL' ? SystemProgram.programId.toBase58() : TOKEN_PROGRAM_ID.toBase58()));
   const associatedCreations = instructions.filter((instruction) => instruction.programId.toBase58() === ASSOCIATED_TOKEN_PROGRAM_ID.toBase58());
-  if (transfers.length < payment.recipients.length) throw new PaymentError('Expected transfers are missing.');
+  if (transfers.length !== payment.recipients.length) throw new PaymentError('Transaction transfer count is invalid.');
+  if (payment.asset === 'USDC' && associatedCreations.length !== payment.recipients.length) throw new PaymentError('Transaction token-account instruction count is invalid.');
   if (payment.asset === 'SOL') {
     const recipientAddresses = new Set(payment.recipients.map((recipient) => recipient.address));
     const recipientAmounts = new Map(payment.recipients.map((recipient) => [recipient.address, recipient.amountBaseUnits]));
@@ -559,7 +539,7 @@ async function checkInstructions(payment: PaymentIntent, attempt: Attempt, parse
       const destination = String(info.destination);
       if (recipientAddresses.has(destination)) {
         if (String(info.lamports) !== recipientAmounts.get(destination)) throw new PaymentError('Recipient transfer amount is incorrect.');
-      } else if (!JITO_TIP_ACCOUNTS.has(destination)) {
+      } else {
         throw new PaymentError('Transaction includes an unexpected transfer instruction.');
       }
     }
@@ -618,15 +598,6 @@ async function verifyAttempt(payment: PaymentIntent, attempt: Attempt) {
     logEvent('payment_rejected', { paymentId: payment.id, attemptId: attempt.id });
     logSplitEvent(payment.network, 'rejected', { paymentId: payment.id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment), reason: 'outside_payment_window' });
     throw new PaymentError('Transaction failed or falls outside the payment window.');
-  }
-  const raw = await rpcWithRetry(() => c.getTransaction(attempt.signature!, { commitment: 'finalized', maxSupportedTransactionVersion: 0 }));
-  let finalized: Transaction | null = null;
-  try { if (raw?.transaction) finalized = transactionFromMessage(raw.transaction.message); } catch { /* rejected below */ }
-  if (!finalized || !await matchesPreparedMessage(payment, attempt, finalized)) {
-    await db().prepare("UPDATE payment_attempts SET status='REJECTED',updated_at=? WHERE id=? AND status IN ('SUBMITTED','CONFIRMING')").bind(Date.now(), attempt.id).run();
-    logEvent('payment_rejected', { paymentId: payment.id, attemptId: attempt.id });
-    logSplitEvent(payment.network, 'rejected', { paymentId: payment.id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment), reason: 'prepared_message_mismatch' });
-    throw new PaymentError('Finalized transaction differs from the prepared payment.');
   }
   try {
     await checkInstructions(payment, attempt, parsed as unknown as Parameters<typeof checkInstructions>[2]);

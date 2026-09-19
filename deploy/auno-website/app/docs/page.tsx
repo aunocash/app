@@ -4,7 +4,6 @@ import type { Metadata } from "next";
 import { FiArrowRight, FiCheckCircle, FiCode, FiDownload, FiExternalLink, FiLock, FiShield } from "react-icons/fi";
 import { Footer } from "../ui";
 import { DocsSearch } from "./docs-search";
-import { MainnetInfoPage } from "../mainnet-site";
 import { isMainnetRequest } from "../../lib/site-network";
 
 export const metadata: Metadata = {
@@ -27,7 +26,9 @@ function Section({ id, eyebrow, title, children }: { id: string; eyebrow: string
 }
 
 export default async function DocsPage() {
-  if (await isMainnetRequest()) return <MainnetInfoPage page="docs" />;
+  const mainnet = await isMainnetRequest();
+  const networkLabel = mainnet ? "Solana Mainnet Beta" : "Solana Devnet";
+  const releaseLabel = mainnet ? "Mainnet Beta" : "Developer preview";
   return <>
     <header className="docs-portal-header">
       <Link className="docs-portal-brand" href="/" aria-label="AUNO home"><img className="brand-logo docs-portal-logo" src="/auno-logo.png" alt="" width="34" height="34" /><span>AUNO <b>Docs</b></span></Link>
@@ -39,23 +40,23 @@ export default async function DocsPage() {
     <main className="docs-portal">
       <div className="docs-portal-mobile-nav"><span>On this page</span><a href="#overview">Overview</a><a href="#payment-model">Payment model</a><a href="#checkout-flow">Checkout flow</a><a href="#api-status">API status</a><a href="#roadmap">Roadmap</a></div>
       <aside className="docs-portal-sidebar" aria-label="Documentation navigation">
-        <div className="docs-portal-sidebar-intro"><span>DOCUMENTATION</span><small>Developer preview</small></div>
+        <div className="docs-portal-sidebar-intro"><span>DOCUMENTATION</span><small>{releaseLabel}</small></div>
         {navGroups.map((group) => <div className="docs-portal-nav-group" key={group.label}><p>{group.label}</p>{group.items.map(([id, title], index) => <a className={index === 0 && group.label === "GET STARTED" ? "active" : ""} href={"#" + id} key={id}>{title}</a>)}</div>)}
       </aside>
       <article className="docs-portal-content">
         <div className="docs-portal-breadcrumbs"><Link href="/">AUNO</Link><span>/</span><span>Docs</span></div>
         <section className="docs-portal-hero" id="overview">
-          <div className="docs-portal-status"><span className="docs-portal-status-dot" /> Developer preview</div>
+          <div className="docs-portal-status"><span className="docs-portal-status-dot" /> {releaseLabel}</div>
           <h1>Build with clarity.</h1>
           <p className="docs-portal-lead">AUNO makes payment behavior explicit—from payment links and wallet-native checkout today to programmable settlement over time.</p>
           <div className="docs-portal-hero-actions"><a className="button" href="#getting-started">Start here <FiArrowRight aria-hidden="true" /></a><a className="docs-portal-text-link" href="/developers">View API surface <FiArrowRight aria-hidden="true" /></a><a className="docs-portal-text-link" href="/docs/download" download>Download docs bundle <FiDownload aria-hidden="true" /></a></div>
           <div className="docs-portal-hero-note"><FiLock aria-hidden="true" /> AUNO never requests seed phrases or private keys.</div>
         </section>
         <Section id="getting-started" eyebrow="01 / GET STARTED" title="Understand the payment path.">
-          <p>AUNO is a non-custodial payment application for Solana devnet. A merchant signs an immutable payment intent, a payer reviews the stored request, and the server verifies the finalized transaction before a receipt is created.</p>
-          <div className="docs-portal-callout"><strong>Developer preview</strong><span>Real wallet acceptance tests for SOL and USDC are still outstanding. Do not treat this release as an audited production payment processor.</span></div>
+          <p>AUNO is a non-custodial payment application for {networkLabel}. A merchant signs an immutable payment intent, a payer reviews the stored request, and the server verifies the finalized transaction before a receipt is created.</p>
+          <div className="docs-portal-callout"><strong>{releaseLabel}</strong><span>{mainnet ? "Mainnet settlement is bounded by release controls. Verify the active feature policy and operational status before relying on a payment link." : "Real wallet acceptance tests for SOL and USDC are still outstanding. Do not treat this release as an audited production payment processor."}</span></div>
           <div className="docs-portal-steps">{[["01", "Create", "Sign a payment request from the merchant wallet."], ["02", "Checkout", "Review the recipient, amount, asset, and network."], ["03", "Settle", "Sign the transfer in the payer wallet."], ["04", "Verify", "Confirm finalization before showing a receipt."]].map(([number, title, copy]) => <div key={number}><span>{number}</span><h3>{title}</h3><p>{copy}</p></div>)}</div>
-          <p>Use the <a href="https://faucet.solana.com" target="_blank" rel="noreferrer">Solana faucet</a> for test SOL. Never fund devnet testing with mainnet assets.</p>
+          {!mainnet && <p>Use the <a href="https://faucet.solana.com" target="_blank" rel="noreferrer">Solana faucet</a> for test SOL. Never fund devnet testing with mainnet assets.</p>}
         </Section>
         <Section id="payment-model" eyebrow="02 / PAYMENT MODEL" title="From transfers to payment logic.">
           <p>A basic transfer answers where value goes. AUNO is designed to make the rules around that transfer explicit: who receives it, how it is allocated, when it is released, and what conditions can control it.</p>
@@ -68,26 +69,26 @@ export default async function DocsPage() {
         </Section>
         <Section id="payment-primitives" eyebrow="04 / PAYMENT PRIMITIVES" title="Compose clear operations.">
           <p>The long-term AUNO model is a set of reusable payment primitives. They can eventually be combined into flows such as escrowed split payments or milestone-based releases.</p>
-          <div className="docs-portal-status-table"><div><strong>PAY</strong><span>Payment Links and checkout foundation; developer preview.</span></div><div><strong>SPLIT</strong><span>Deterministic allocation preview; live multi-recipient settlement is not enabled.</span></div><div><strong>HOLD / RELEASE</strong><span>Secure value and settle it later; planned with explicit authority.</span></div><div><strong>REFUND</strong><span>Return secured value under defined rules; planned.</span></div><div><strong>STREAM</strong><span>Distribute value over time; planned research.</span></div><div><strong>TRIGGER</strong><span>Execute payment logic when conditions are met; long-term direction.</span></div></div>
+          <div className="docs-portal-status-table"><div><strong>PAY</strong><span>{mainnet ? "SOL payment links and wallet-native checkout; Mainnet Beta." : "Payment Links and checkout foundation; developer preview."}</span></div><div><strong>SPLIT</strong><span>{mainnet ? "Multi-recipient settlement is released only when the Mainnet split feature policy is active." : "Deterministic allocation preview; live multi-recipient settlement is not enabled."}</span></div><div><strong>HOLD / RELEASE</strong><span>Secure value and settle it later; planned with explicit authority.</span></div><div><strong>REFUND</strong><span>Return secured value under defined rules; planned.</span></div><div><strong>STREAM</strong><span>Distribute value over time; planned research.</span></div><div><strong>TRIGGER</strong><span>Execute payment logic when conditions are met; long-term direction.</span></div></div>
         </Section>
         <Section id="use-cases" eyebrow="05 / USE CASES" title="One payment layer, many workflows.">
           <p>The same primitives can support different application needs without changing who controls the wallet or how settlement is verified.</p>
           <ul className="docs-portal-list"><li>Commerce and marketplaces with structured checkout and revenue routing.</li><li>Freelance and service agreements with escrow or milestone releases.</li><li>Creator, affiliate, DAO, and treasury distributions.</li><li>SaaS, recurring compensation, and developer applications.</li><li>Future software-controlled and machine-to-machine payments.</li></ul>
         </Section>
         <Section id="checkout-flow" eyebrow="06 / WALLET-NATIVE CHECKOUT" title="Review first. Sign once.">
-          <p>Checkout loads the stored payment intent rather than trusting query parameters. The server prepares a transaction from that intent. The wallet signs it, and the server checks that the signed message exactly matches the prepared transaction before submission.</p>
+          <p>Checkout loads the stored payment intent rather than trusting query parameters. The server prepares a transaction from that intent. The wallet broadcasts it when supported, and the server only marks it paid after finalized verification of the payer, memo, expected transfers, asset, amount, and permitted instructions.</p>
           <div className="docs-portal-inline-status"><FiCheckCircle aria-hidden="true" /><span><strong>Current flow</strong> Confirm the payment details in your wallet, submit, then click Verify Payment.</span></div>
           <p>If finalization is pending, retry verification instead of sending another payment. A rejected wallet prompt does not move funds.</p>
         </Section>
         <Section id="verification" eyebrow="07 / TRANSACTION VERIFICATION" title="A signature is not a receipt.">
-          <p>PAID is written only by server verification against finalized Solana RPC data. Verification checks successful execution, payer signature, the payment memo, the prepared message, asset, amount, and destination.</p>
+          <p>PAID is written only by server verification against finalized Solana RPC data. Verification checks successful execution, payer signature, the per-attempt payment memo, expected transfers, asset, amount, destination, and permitted instructions.</p>
           <div className="docs-portal-check-grid"><div><FiCode aria-hidden="true" /><strong>Exact intent</strong><span>Stored amount, asset, and recipient</span></div><div><FiCheckCircle aria-hidden="true" /><strong>Finalized chain state</strong><span>Successful execution and confirmation</span></div><div><FiShield aria-hidden="true" /><strong>Idempotent receipt</strong><span>Duplicate verification returns the existing receipt</span></div></div>
         </Section>
         <Section id="payment-status" eyebrow="08 / PAYMENT LIFECYCLE" title="Status is server-authoritative.">
           <div className="docs-portal-status-table"><div><strong>ACTIVE</strong><span>Request is available for checkout.</span></div><div><strong>AWAITING_SIGNATURE</strong><span>Prepared attempt is waiting for the wallet.</span></div><div><strong>SUBMITTED</strong><span>Signature is recorded before RPC submission.</span></div><div><strong>CONFIRMING</strong><span>Finalization has not yet been established.</span></div><div><strong>PAID</strong><span>Server verification has completed successfully.</span></div><div><strong>FAILED / EXPIRED</strong><span>Execution failed or the request is no longer payable.</span></div></div>
         </Section>
         <Section id="receipts" eyebrow="09 / VERIFIED RECEIPTS" title="Show the facts that settled.">
-          <p>A verified receipt includes the payment ID, amount, asset, recipient, payer, network, transaction signature, and chain timestamp. Explorer links explicitly use <code>cluster=devnet</code>.</p>
+          <p>A verified receipt includes the payment ID, amount, asset, recipient, payer, network, transaction signature, and chain timestamp. Explorer links {mainnet ? "open on Solana Mainnet." : <>explicitly use <code>cluster=devnet</code>.</>}</p>
         </Section>
         <Section id="api-status" eyebrow="10 / DEVELOPER INFRASTRUCTURE" title="The public API is not launched yet.">
           <p>The internal application routes support payment creation, retrieval, transaction preparation, submission, verification, and merchant history. They are not a stable public API contract.</p>
@@ -98,8 +99,8 @@ export default async function DocsPage() {
           <p>Merchant creation and history access require wallet signatures. Creation signatures include the origin and a five-minute timestamp window. Prepared messages cannot be replaced by the client, and unique payment-attempt memos reduce replay and concurrency risk.</p>
           <p>These controls are not a security audit. Production activation still requires independent review, abuse controls, monitoring, backups, and recovery procedures.</p>
         </Section>
-        <Section id="network" eyebrow="12 / NETWORK CONFIGURATION" title="Devnet is intentional.">
-          <p><code>SOLANA_NETWORK</code> must be <code>devnet</code>. Mainnet is rejected. SOL uses nine decimal places; the configured Circle devnet USDC mint uses six. Public RPC endpoints may throttle, so a dedicated devnet RPC is recommended for reliable operation.</p>
+        <Section id="network" eyebrow="12 / NETWORK CONFIGURATION" title={mainnet ? "Mainnet Beta is explicit." : "Devnet is intentional."}>
+          <p>{mainnet ? <><code>SOLANA_NETWORK</code> is <code>mainnet-beta</code>. The service checks the Mainnet genesis hash and uses a dedicated authenticated RPC endpoint. SOL uses nine decimal places; Mainnet Beta feature controls determine which assets and settlement modes are active.</> : <><code>SOLANA_NETWORK</code> must be <code>devnet</code>. Mainnet is rejected. SOL uses nine decimal places; the configured Circle devnet USDC mint uses six. Public RPC endpoints may throttle, so a dedicated devnet RPC is recommended for reliable operation.</>}</p>
         </Section>
         <Section id="roadmap" eyebrow="13 / ROADMAP" title="From payment foundations to programmable money.">
           <p>The product direction moves from payment foundations to programmable settlement, a developer layer, external integrations, and eventually autonomous payments.</p>
@@ -111,6 +112,6 @@ export default async function DocsPage() {
       </article>
       <aside className="docs-portal-toc" aria-label="On this page"><p>ON THIS PAGE</p><a href="#overview">Overview</a><a href="#getting-started">Payment path</a><a href="#checkout-flow">Checkout flow</a><a href="#verification">Verification</a><a href="#api-status">API status</a><a href="#roadmap">Roadmap</a></aside>
     </main>
-    <Footer />
+    <Footer network={mainnet ? "mainnet" : undefined} />
   </>;
 }

@@ -8,6 +8,8 @@ const styles = fs.readFileSync(new URL("../app/globals.css", import.meta.url), "
 const mainnetSite = fs.readFileSync(new URL("../app/mainnet-site.tsx", import.meta.url), "utf8");
 const siteNetwork = fs.readFileSync(new URL("../lib/site-network.ts", import.meta.url), "utf8");
 const homePage = fs.readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+const developersPage = fs.readFileSync(new URL("../app/developers/page.tsx", import.meta.url), "utf8");
+const docsPage = fs.readFileSync(new URL("../app/docs/page.tsx", import.meta.url), "utf8");
 const splitPage = fs.readFileSync(new URL("../app/split/page.tsx", import.meta.url), "utf8");
 const payPage = fs.readFileSync(new URL("../app/pay/[id]/page.tsx", import.meta.url), "utf8");
 
@@ -59,7 +61,10 @@ assert.doesNotMatch(paymentUi, /Allowlisted Mainnet Beta/);
 assert.match(mainnetSite, /Split payments are unavailable in this beta/);
 assert.doesNotMatch(mainnetSite, /Try on Devnet|Solana Devnet/);
 assert.match(siteNetwork, /mainnet\.auno\.cash/);
-assert.match(homePage, /isMainnetRequest\(\).*?<MainnetHome/s);
+assert.match(homePage, /isMainnetRequest\(\).*?<Home network=\{mainnet \? 'mainnet' : undefined\}/s);
+assert.match(developersPage, /isMainnetRequest\(\).*?<Developers network=\{mainnet \? 'mainnet' : undefined\}/s);
+assert.doesNotMatch(docsPage, /MainnetInfoPage/);
+assert.match(docsPage, /Solana Mainnet Beta/);
 assert.match(paymentUi, /AUNO Mainnet Payment/);
 assert.match(paymentUi, /Mainnet Beta payment link/);
 assert.match(paymentUi, /mainnetSplits/);

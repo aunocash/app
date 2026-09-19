@@ -28,18 +28,25 @@ const developerCapabilities = [
   { title: "Subscriptions", status: "Planned", description: "Recurring wallet-authorized payment flows remain future work.", href: "/roadmap" },
 ] as const;
 
-export function Developers() {
+export function Developers({ network }: { network?: "mainnet" }) {
+  const mainnet = network === "mainnet";
+  const capabilities = mainnet ? [
+    { ...developerCapabilities[0], status: "Mainnet Beta", description: "Create and share immutable Mainnet Beta SOL payment requests." },
+    { ...developerCapabilities[1], status: "Mainnet Beta", description: "Wallet-managed signing and finalized server-verified receipts on Solana Mainnet." },
+    { ...developerCapabilities[2], status: "Feature policy", description: "Multi-recipient SOL settlement is available only when the Mainnet split policy is active." },
+    ...developerCapabilities.slice(3),
+  ] : developerCapabilities;
   return (
     <>
-      <Nav />
+      <Nav network={network} />
       <main className="page-shell developers-page">
         <header className="developer-page-header">
-          <div className="eyebrow">DEVELOPER PREVIEW</div>
+          <div className="eyebrow">{mainnet ? "MAINNET BETA" : "DEVELOPER PREVIEW"}</div>
           <h1>A clear path from<br />intent to settlement.</h1>
-          <p>Internal payment primitives today. A stable public developer platform next.</p>
+          <p>{mainnet ? "Mainnet Beta payment primitives with finalized settlement verification." : "Internal payment primitives today. A stable public developer platform next."}</p>
         </header>
 
-        <div className="notice">@auno/sdk is not published. These internal endpoints power the application and may change. Origin checks and signed wallet messages apply; there is no public API key product.</div>
+        <div className="notice">@auno/sdk is not published. These internal endpoints power the application and may change. Origin checks and signed wallet messages apply; there is no public API key product. {mainnet && "Mainnet features remain subject to the active settlement and split-release policies."}</div>
 
         <section className="developer-capabilities" aria-labelledby="platform-capabilities-title">
           <div className="developer-capabilities-heading">
@@ -50,7 +57,7 @@ export function Developers() {
             <p>Each capability is labeled by its current release state so implementation plans are not presented as live product features.</p>
           </div>
           <div className="developer-capability-matrix">
-            {developerCapabilities.map((capability) => (
+            {capabilities.map((capability) => (
               <a className="developer-capability" href={capability.href} key={capability.title}>
                 <span className="developer-capability-status" data-status={capability.status}>{capability.status}</span>
                 <div>
@@ -70,10 +77,10 @@ export function Developers() {
               ["POST /api/payments", "Create an immutable intent", "Signed merchant payload"],
               ["GET /api/payments?wallet=…", "List up to 200 merchant payments", "Signed history authorization"],
               ["GET /api/payments/:id", "Load checkout or receipt", "Site access + link ID"],
-              ["POST /api/payments/:id/prepare", "Build devnet transaction", "Same origin; active intent"],
-              ["POST /api/payments/:id/submit", "Submit exact signed transaction", "Same origin; valid payer signature"],
+              ["POST /api/payments/:id/prepare", mainnet ? "Build Mainnet Beta transaction" : "Build devnet transaction", "Same origin; active intent"],
+              ["POST /api/payments/:id/submit", "Record wallet-broadcast transaction", "Same origin; valid payer signature"],
               ["POST /api/payments/:id/verify", "Verify finalized settlement", "Same origin; associated signature"],
-              ["GET /api/health", "Check storage and devnet RPC", "Site access"],
+              ["GET /api/health", mainnet ? "Check storage and Mainnet RPC" : "Check storage and devnet RPC", "Site access"],
             ].map((endpoint) => <tr key={endpoint[0]}>{endpoint.map((cell) => <td key={cell}>{cell}</td>)}</tr>)}</tbody>
           </table>
         </div>
@@ -85,17 +92,17 @@ export function Developers() {
 
         <section className="doc-section">
           <h2>Settlement contract</h2>
-          <p>Browser state is not settlement truth. A receipt requires finalized RPC verification of the exact stored transaction message and its expected transfer. A retry of the same verified signature returns the existing receipt. Never implement success with a timer or trust a client-provided status.</p>
+          <p>Browser state is not settlement truth. A receipt requires finalized RPC verification against the stored payment intent, per-attempt memo, expected transfer, payer, recipient, and permitted instructions. A retry of the same verified signature returns the existing receipt. Never implement success with a timer or trust a client-provided status.</p>
           <a href="/docs#security-model">Read the security model <FiArrowRight className="inline-icon action-icon" aria-hidden="true" /></a>
         </section>
 
         <section className="doc-section" id="platform-status">
           <h2>Platform status</h2>
-          <p>Public API, SDK, webhooks, escrow, and subscriptions are not available. The internal engine is a devnet developer preview. Use the payment UI to exercise the current integration and report failures without sharing keys or seed phrases.</p>
+          <p>Public API, SDK, webhooks, escrow, and subscriptions are not available. The internal engine is {mainnet ? "a bounded Mainnet Beta release." : "a devnet developer preview."} Use the payment UI to exercise the current integration and report failures without sharing keys or seed phrases.</p>
           <a href="/api/health" target="_blank" rel="noreferrer">Check service health <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a>
         </section>
       </main>
-      <Footer />
+      <Footer network={network} />
     </>
   );
 }

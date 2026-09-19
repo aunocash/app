@@ -4,15 +4,67 @@ set -eu
 cd /app
 
 : "${SOLANA_NETWORK:=devnet}"
-: "${SOLANA_RPC_URL:=https://api.devnet.solana.com}"
+: "${AUNO_PUBLIC_ORIGIN:=https://auno.cash}"
 
-if [ "$SOLANA_NETWORK" != "devnet" ]; then
-  echo "SOLANA_NETWORK must be devnet for this ZIP deployment" >&2
-  exit 64
-fi
+case "$SOLANA_NETWORK" in
+  devnet)
+    : "${SOLANA_RPC_URL:=https://api.devnet.solana.com}"
+    ;;
+  mainnet-beta)
+    if [ "${AUNO_COOLIFY_MAINNET_STAGING:-}" != "true" ]; then
+      echo "Mainnet requires the isolated Coolify staging Compose deployment." >&2
+      exit 64
+    fi
+    if [ "${AUNO_MAINNET_ENABLED:-false}" != "false" ]; then
+      echo "Coolify Mainnet staging cannot enable settlement." >&2
+      exit 64
+    fi
+    if [ "$AUNO_PUBLIC_ORIGIN" != "https://mainnet.auno.cash" ]; then
+      echo "Coolify Mainnet staging must use https://mainnet.auno.cash." >&2
+      exit 64
+    fi
+    : "${SOLANA_RPC_URL:?Set SOLANA_RPC_URL to a dedicated Solana Mainnet RPC endpoint}"
+    : "${AUNO_ALLOWED_MERCHANTS:?Set AUNO_ALLOWED_MERCHANTS to approved Mainnet merchant wallets}"
+    : "${AUNO_VERIFIER_TOKEN:?Set AUNO_VERIFIER_TOKEN to a random server-only value}"
+    if [ "${#AUNO_VERIFIER_TOKEN}" -lt 32 ]; then
+      echo "AUNO_VERIFIER_TOKEN must contain at least 32 characters." >&2
+      exit 64
+    fi
+    if [ "${AUNO_MAX_SOL_LAMPORTS:-100000000}" != "100000000" ]; then
+      echo "Coolify Mainnet staging must retain the 0.1 SOL maximum." >&2
+      exit 64
+    fi
+    ;;
+  *)
+    echo "SOLANA_NETWORK must be devnet or mainnet-beta." >&2
+    exit 64
+    ;;
+esac
+
+write_runtime_value() {
+  name="$1"
+  value="$2"
+  normalized=$(printf '%s' "$value" | tr -d '\r\n')
+  if [ "$normalized" != "$value" ]; then
+    echo "Runtime settings cannot contain line breaks." >&2
+    exit 64
+  fi
+  printf '%s=%s\n' "$name" "$value"
+}
 
 umask 077
-printf 'SOLANA_NETWORK=%s\nSOLANA_RPC_URL=%s\n' "$SOLANA_NETWORK" "$SOLANA_RPC_URL" > /app/dist/server/.dev.vars
+{
+  write_runtime_value SOLANA_NETWORK "$SOLANA_NETWORK"
+  write_runtime_value SOLANA_RPC_URL "$SOLANA_RPC_URL"
+  write_runtime_value AUNO_PUBLIC_ORIGIN "$AUNO_PUBLIC_ORIGIN"
+  if [ "$SOLANA_NETWORK" = "mainnet-beta" ]; then
+    write_runtime_value AUNO_MAINNET_ENABLED "${AUNO_MAINNET_ENABLED:-false}"
+    write_runtime_value AUNO_ALLOWED_MERCHANTS "$AUNO_ALLOWED_MERCHANTS"
+    write_runtime_value AUNO_MAX_SOL_LAMPORTS "${AUNO_MAX_SOL_LAMPORTS:-100000000}"
+    write_runtime_value AUNO_VERIFIER_BATCH_SIZE "${AUNO_VERIFIER_BATCH_SIZE:-25}"
+    write_runtime_value AUNO_VERIFIER_TOKEN "$AUNO_VERIFIER_TOKEN"
+  fi
+} > /app/dist/server/.dev.vars
 
 mkdir -p /app/.wrangler/state
 

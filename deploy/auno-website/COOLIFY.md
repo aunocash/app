@@ -33,6 +33,8 @@ Do not commit the RPC value if it contains credentials. The entrypoint writes th
 Coolify connects only to port `3000`. The runtime forwards `/api` and `/api/*` to the Wrangler Worker on `127.0.0.1:8787`; all other requests, including pages and static assets, go to Vinext on `127.0.0.1:3001`. Do not create domains or expose ports for either internal service.
 ## Persistence and limitations
 
-The Compose volume `auno-website-d1` stores Wrangler's local D1 state. Keep one replica and configure volume backups before using the preview with real users. This is a Devnet developer preview, not a production Cloudflare D1 deployment. Mainnet is intentionally rejected by the entrypoint.
+The Compose volume `auno-website-d1` stores Wrangler's local D1 state. Keep one replica and configure volume backups before using the preview with real users. This is a Devnet developer preview, not a production Cloudflare D1 deployment.
 
 After deployment, check `https://auno.cash/api/health`. It should return HTTP 200 only when local D1 and the configured Solana Devnet RPC are available.
+
+For the separately isolated, settlement-disabled Mainnet Beta staging resource, follow [COOLIFY_MAINNET_STAGING.md](./COOLIFY_MAINNET_STAGING.md). Do not change this Devnet Compose file to Mainnet.

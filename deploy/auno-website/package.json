@@ -12,7 +12,7 @@
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "node --import ./scripts/windows-user-info.mjs node_modules/drizzle-kit/bin.cjs generate",
-    "test": "node tests/payment.test.mjs && node tests/theme-system.test.mjs && node tests/docs-brand.test.mjs && node tests/home-and-developers-ui.test.mjs && node tests/split-flow.test.mjs",
+    "test": "node tests/payment.test.mjs && node tests/theme-system.test.mjs && node tests/docs-brand.test.mjs && node tests/home-and-developers-ui.test.mjs && node tests/split-flow.test.mjs && node tests/coolify-mainnet-staging.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

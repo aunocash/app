@@ -38,4 +38,8 @@ AUNO_VERIFIER_BATCH_SIZE=25
 3. Complete and verify `0.001`, `0.01`, and `0.1 SOL` transactions with Explorer receipts and recipient balance checks.
 4. Disable the kill switch immediately for any unexpected RPC, verification, or wallet-signing behavior. Do not delete records during incident response.
 
-Coolify remains Devnet-only. Its local D1 volume and Docker entrypoint must not serve Mainnet payments.
+## Temporary Coolify staging
+
+Before `auno.cash` DNS is moved to Cloudflare, an isolated Coolify staging deployment may be used for DNS, UI, RPC, health-check, backup, and verifier testing only. It cannot accept payments: both the Compose file and container entrypoint enforce the settlement kill switch.
+
+Use [COOLIFY_MAINNET_STAGING.md](./COOLIFY_MAINNET_STAGING.md). It has a separate volume and credentials from Devnet. Migrate to the managed Cloudflare Worker and D1 deployment before enabling Mainnet settlement.

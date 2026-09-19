@@ -1,0 +1,54 @@
+# Temporary, isolated Mainnet Beta staging only.
+# The container entrypoint rejects AUNO_MAINNET_ENABLED=true.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      SOLANA_NETWORK: mainnet-beta
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:?Set SOLANA_RPC_URL to a dedicated Solana Mainnet RPC endpoint}
+      AUNO_PUBLIC_ORIGIN: https://mainnet.auno.cash
+      AUNO_COOLIFY_MAINNET_STAGING: "true"
+      AUNO_MAINNET_ENABLED: "false"
+      AUNO_ALLOWED_MERCHANTS: ${AUNO_ALLOWED_MERCHANTS:?Set AUNO_ALLOWED_MERCHANTS to approved Mainnet merchant wallets}
+      AUNO_MAX_SOL_LAMPORTS: "100000000"
+      AUNO_VERIFIER_BATCH_SIZE: "25"
+      AUNO_VERIFIER_TOKEN: ${AUNO_VERIFIER_TOKEN:?Set AUNO_VERIFIER_TOKEN to a random server-only value}
+    expose:
+      - "3000"
+    volumes:
+      - auno-mainnet-staging-d1:/app/.wrangler/state
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  verifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    entrypoint:
+      - /usr/local/bin/auno-mainnet-verifier
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      SOLANA_NETWORK: mainnet-beta
+      AUNO_COOLIFY_MAINNET_STAGING: "true"
+      AUNO_MAINNET_ENABLED: "false"
+      AUNO_APP_ORIGIN: http://web:3000
+      AUNO_VERIFIER_TOKEN: ${AUNO_VERIFIER_TOKEN:?Set AUNO_VERIFIER_TOKEN to a random server-only value}
+
+volumes:
+  auno-mainnet-staging-d1:

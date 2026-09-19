@@ -1,7 +1,7 @@
 import { MainnetInfoPage } from "../mainnet-site";
 import { SplitCalculator } from "../payment-ui";
 import { isMainnetRequest } from "@/lib/site-network";
-import { mainnetSplitsEnabled } from "@/lib/payments/server";
+import { serverMainnetSplitsEnabled as mainnetSplitsEnabled } from "@/lib/runtime-env";
 
 export default async function SplitPage() {
   if (await isMainnetRequest()) return mainnetSplitsEnabled() ? <SplitCalculator network="mainnet-beta" /> : <MainnetInfoPage page="split" />;

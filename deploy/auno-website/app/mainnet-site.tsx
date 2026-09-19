@@ -1,7 +1,7 @@
 import { FiArrowRight, FiCheckCircle, FiLock, FiShield } from "react-icons/fi";
 import Link from "next/link";
 import { MainnetBetaRibbon, Footer, Nav } from "./ui";
-import { mainnetSplitsEnabled } from "@/lib/payments/server";
+import { serverMainnetSplitsEnabled as mainnetSplitsEnabled } from "@/lib/runtime-env";
 
 type MainnetPage = "docs" | "developers" | "roadmap" | "whitepaper" | "split";
 

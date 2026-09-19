@@ -8,6 +8,13 @@
       "when": 1789248596796,
       "tag": "0000_lush_the_executioner",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789340000000,
+      "tag": "0002_mainnet_beta",
+      "breakpoints": true
     }
   ]
 }

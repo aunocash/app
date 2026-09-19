@@ -3,11 +3,11 @@ import { ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInst
 import { Connection, Message, PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
-import { ASSETS, DEVNET_RPC, MEMO_PROGRAM, allocate, creationMessage, displayUnits, historyMessage, toBaseUnits, validateRecipients, type Asset, type PaymentIntent, type Recipient, type SplitRecipient } from './model';
+import { ASSETS, NETWORKS, MEMO_PROGRAM, allocate, creationMessage, displayUnits, historyMessage, toBaseUnits, validateRecipients, type Asset, type NetworkId, type PaymentIntent, type Recipient, type SplitRecipient } from './model';
 import { paymentPolicy } from './policy';
 
 export class PaymentError extends Error { constructor(message: string, public status = 400) { super(message); } }
-type Runtime = Record<string, unknown> & { DB?: D1Database; SOLANA_RPC_URL?: string; SOLANA_NETWORK?: string; AUNO_TRUSTED_CLIENT_HEADER?: string };
+type Runtime = Record<string, unknown> & { DB?: D1Database; SOLANA_RPC_URL?: string; SOLANA_NETWORK?: string; AUNO_PUBLIC_ORIGIN?: string; AUNO_TRUSTED_CLIENT_HEADER?: string; AUNO_MAINNET_ENABLED?: string; AUNO_ALLOWED_MERCHANTS?: string; AUNO_MAX_SOL_LAMPORTS?: string; AUNO_VERIFIER_BATCH_SIZE?: string; AUNO_VERIFIER_TOKEN?: string };
 type Attempt = { id: string; payment_id: string; payer: string; message_hash: string; attempt_token_hash: string; last_valid_block_height: number; signature: string | null; status: string };
 const CANONICAL_BLOCKHASH = '11111111111111111111111111111111';
 const COMPUTE_BUDGET_PROGRAM = 'ComputeBudget111111111111111111111111111111';
@@ -20,11 +20,55 @@ const MAX_PRIORITY_FEE_LAMPORTS = 10_000_000n;
 function runtime() { return env as unknown as Runtime; }
 function policy() { try { return paymentPolicy(runtime()); } catch { throw new PaymentError('Payment deployment settings are invalid.', 503); } }
 export function db(): D1Database { const database = runtime().DB; if (!database) throw new PaymentError('Payment storage is unavailable. Please try again later.', 503); return database; }
-export function connection() {
-  if (runtime().SOLANA_NETWORK && runtime().SOLANA_NETWORK !== 'devnet') throw new PaymentError('Mainnet is disabled in this release.', 503);
-  return new Connection(runtime().SOLANA_RPC_URL || DEVNET_RPC, { commitment: 'confirmed', disableRetryOnRateLimit: true, fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(15_000) }) });
+export function paymentNetwork(): NetworkId {
+  const configured = runtime().SOLANA_NETWORK || 'devnet';
+  if (configured !== 'devnet' && configured !== 'mainnet-beta') throw new PaymentError('Payment network deployment setting is invalid.', 503);
+  return configured;
 }
-export async function assertDevnet(c: Connection) { if (await c.getGenesisHash() !== 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG') throw new PaymentError('RPC network mismatch. Devnet is required.', 503); }
+function logEvent(event: string, details: Record<string, unknown> = {}) { console.info(JSON.stringify({ event, network: paymentNetwork(), ...details })); }
+function configuredOrigin() {
+  const network = paymentNetwork();
+  const fallback = network === 'mainnet-beta' ? 'https://mainnet.auno.cash' : 'https://auno.cash';
+  const configured = runtime().AUNO_PUBLIC_ORIGIN || fallback;
+  try {
+    const origin = new URL(configured);
+    if (origin.origin !== configured || origin.protocol !== 'https:' || origin.hostname !== new URL(fallback).hostname) throw new Error();
+    return origin.origin;
+  } catch { throw new PaymentError('Payment origin deployment setting is invalid.', 503); }
+}
+function mainnetEnabled() { return runtime().AUNO_MAINNET_ENABLED === 'true'; }
+function assertSettlementEnabled() {
+  if (paymentNetwork() === 'mainnet-beta' && !mainnetEnabled()) throw new PaymentError('Mainnet Beta settlement is not enabled.', 503);
+}
+function mainnetMerchantAllowlist() {
+  const configured = runtime().AUNO_ALLOWED_MERCHANTS;
+  if (typeof configured !== 'string' || !configured.trim()) throw new PaymentError('Mainnet merchant allowlist is not configured.', 503);
+  try { return new Set(configured.split(/[\s,]+/).filter(Boolean).map((wallet) => address(wallet))); }
+  catch { throw new PaymentError('Mainnet merchant allowlist is invalid.', 503); }
+}
+function assertMerchantCanCreate(merchant: string) {
+  if (paymentNetwork() === 'mainnet-beta' && !mainnetMerchantAllowlist().has(merchant)) throw new PaymentError('This merchant wallet is not enabled for Mainnet Beta.', 403);
+}
+function mainnetMaxSolLamports() {
+  const configured = runtime().AUNO_MAX_SOL_LAMPORTS || '100000000';
+  if (!/^\d+$/.test(configured)) throw new PaymentError('Mainnet SOL limit deployment setting is invalid.', 503);
+  const value = BigInt(configured);
+  if (value <= 0n || value > 100_000_000n) throw new PaymentError('Mainnet SOL limit deployment setting exceeds the beta maximum.', 503);
+  return value;
+}
+export function connection() {
+  const network = NETWORKS[paymentNetwork()];
+  const endpoint = runtime().SOLANA_RPC_URL || network.defaultRpc;
+  if (!endpoint) throw new PaymentError('A dedicated mainnet RPC endpoint is required.', 503);
+  return new Connection(endpoint, { commitment: 'confirmed', disableRetryOnRateLimit: true, fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(15_000) }) });
+}
+export async function assertNetwork(c: Connection) {
+  const network = NETWORKS[paymentNetwork()];
+  if (await c.getGenesisHash() !== network.genesisHash) {
+    console.error(JSON.stringify({ event: 'payment_rpc_network_mismatch', network: network.id }));
+    throw new PaymentError(`RPC network mismatch. ${network.label} is required.`, 503);
+  }
+}
 export function address(input: unknown): string {
   try {
     if (typeof input !== 'string') throw new Error();
@@ -48,15 +92,19 @@ function isLocal(url: URL) { return url.hostname === 'localhost' || url.hostname
 export function sameOrigin(req: Request) {
   const requestUrl = new URL(req.url);
   const origin = req.headers.get('origin');
-  const expected = isLocal(requestUrl) ? requestUrl.origin : 'https://auno.cash';
+  const expected = isLocal(requestUrl) ? requestUrl.origin : configuredOrigin();
   if (origin !== expected) throw new PaymentError('This request must originate from AUNO.', 403);
   return expected;
 }
-function publicOrigin(req: Request) { return isLocal(new URL(req.url)) ? new URL(req.url).origin : 'https://auno.cash'; }
+function publicOrigin(req: Request) { return isLocal(new URL(req.url)) ? new URL(req.url).origin : configuredOrigin(); }
 function sourceBucket(req: Request) {
   const header = runtime().AUNO_TRUSTED_CLIENT_HEADER;
   if (typeof header === 'string' && /^[a-z0-9-]{1,64}$/i.test(header)) return req.headers.get(header) || 'anonymous';
   return 'anonymous';
+}
+export function assertVerifierAuthorization(req: Request) {
+  const token = runtime().AUNO_VERIFIER_TOKEN;
+  if (typeof token !== 'string' || token.length < 32 || req.headers.get('authorization') !== `Bearer ${token}`) throw new PaymentError('Not found.', 404);
 }
 async function sha256(value: Uint8Array | string) {
   const bytes = typeof value === 'string' ? new TextEncoder().encode(value) : value;
@@ -144,17 +192,21 @@ function deserialize(row: Record<string, unknown>): PaymentIntent {
     percentageBps: Number(recipient.percentageBps),
     amountBaseUnits: String(recipient.amountBaseUnits),
   }));
-  return { id: row.id as string, merchantWallet: row.merchant_wallet as string, title: row.title as string, description: row.description as string, asset: row.asset as Asset, amount: row.amount as string, amountBaseUnits: row.amount_base_units as string, recipients, reference: row.reference as string, expiresAt: row.expires_at as number, status: row.status as PaymentIntent['status'], transactionSignature: row.transaction_signature as string | null, payer: row.payer as string | null, createdAt: row.created_at as number, updatedAt: row.updated_at as number, paidAt: row.paid_at as number | null };
+  const network = row.network === 'mainnet-beta' ? 'mainnet-beta' : 'devnet';
+  return { id: row.id as string, network, merchantWallet: row.merchant_wallet as string, title: row.title as string, description: row.description as string, asset: row.asset as Asset, amount: row.amount as string, amountBaseUnits: row.amount_base_units as string, recipients, reference: row.reference as string, expiresAt: row.expires_at as number, status: row.status as PaymentIntent['status'], transactionSignature: row.transaction_signature as string | null, payer: row.payer as string | null, createdAt: row.created_at as number, updatedAt: row.updated_at as number, paidAt: row.paid_at as number | null };
 }
 export function checkoutPayment(payment: PaymentIntent) {
-  return { id: payment.id, title: payment.title, description: payment.description, asset: payment.asset, amount: payment.amount, amountBaseUnits: payment.amountBaseUnits, recipients: payment.recipients, reference: payment.reference, expiresAt: payment.expiresAt, status: payment.status, transactionSignature: payment.transactionSignature, payer: payment.payer, createdAt: payment.createdAt, paidAt: payment.paidAt };
+  return { id: payment.id, network: payment.network, title: payment.title, description: payment.description, asset: payment.asset, amount: payment.amount, amountBaseUnits: payment.amountBaseUnits, recipients: payment.recipients, reference: payment.reference, expiresAt: payment.expiresAt, status: payment.status, transactionSignature: payment.transactionSignature, payer: payment.payer, createdAt: payment.createdAt, paidAt: payment.paidAt };
 }
 export async function getPayment(id: string) {
   const row = await db().prepare('SELECT * FROM payments WHERE id=?').bind(id).first<Record<string, unknown>>();
   if (!row) throw new PaymentError('Payment not found.', 404);
+  if (deserialize(row).network !== paymentNetwork()) throw new PaymentError('Payment not found.', 404);
   if (Number(row.expires_at) <= Date.now() && row.status === 'ACTIVE') await db().prepare("UPDATE payments SET status='EXPIRED',updated_at=? WHERE id=? AND status='ACTIVE'").bind(Date.now(), id).run();
   const current = await db().prepare('SELECT * FROM payments WHERE id=?').bind(id).first<Record<string, unknown>>();
-  return deserialize(current!);
+  const payment = deserialize(current!);
+  if (payment.network !== paymentNetwork()) throw new PaymentError('Payment not found.', 404);
+  return payment;
 }
 function recipientsFromInput(input: Record<string, unknown>, total: bigint): Recipient[] {
   const requested: SplitRecipient[] = Array.isArray(input.recipients)
@@ -172,12 +224,15 @@ function recipientsFromInput(input: Record<string, unknown>, total: bigint): Rec
 }
 export async function createPayment(req: Request) {
   const origin = sameOrigin(req);
+  const network = paymentNetwork();
+  assertSettlementEnabled();
   const body = await jsonBody(req);
   if (typeof body.payload !== 'string' || typeof body.signature !== 'string') throw new PaymentError('A signed payment request is required.');
   let input: Record<string, unknown>;
   try { input = JSON.parse(body.payload) as Record<string, unknown>; } catch { throw new PaymentError('Invalid payment request.'); }
   const merchant = address(input.merchantWallet);
-  verifySignature(merchant, creationMessage(body.payload), body.signature);
+  verifySignature(merchant, creationMessage(body.payload, network), body.signature);
+  assertMerchantCanCreate(merchant);
   const existing = await db().prepare('SELECT id FROM payments WHERE creation_key=?').bind(body.signature).first<{ id: string }>();
   if (existing) return getPayment(existing.id);
   if (input.origin !== origin || !Number.isSafeInteger(input.timestamp) || Math.abs(Date.now() - Number(input.timestamp)) > 300_000) throw new PaymentError('Request expired. Sign a fresh request.');
@@ -187,25 +242,29 @@ export async function createPayment(req: Request) {
   if (typeof input.reference !== 'string' || input.reference.length > limits.maxReferenceLength) throw new PaymentError('Reference exceeds the allowed length.');
   if (input.asset !== 'SOL' && input.asset !== 'USDC') throw new PaymentError('Choose SOL or USDC.');
   const asset = input.asset as Asset;
+  if (!NETWORKS[network].supportsUsdc && asset !== 'SOL') throw new PaymentError('Mainnet Beta currently supports SOL payment links only.', 422);
+  if (network === 'mainnet-beta' && Array.isArray(input.recipients)) throw new PaymentError('Mainnet Beta does not support split payment links.', 422);
   let amount: bigint;
   try { amount = toBaseUnits(String(input.amount), ASSETS[asset].decimals); } catch (error) { throw new PaymentError(error instanceof Error ? error.message : 'Invalid payment amount.'); }
+  if (network === 'mainnet-beta' && amount > mainnetMaxSolLamports()) throw new PaymentError('Mainnet Beta payment links are limited to 0.1 SOL.', 422);
   const recipients = recipientsFromInput(input, amount);
   const now = Date.now();
   if (!Number.isSafeInteger(input.expiresAt) || Number(input.expiresAt) < now + limits.minExpiryMs || Number(input.expiresAt) > now + limits.maxExpiryMs) throw new PaymentError('Expiration is outside the permitted range.');
   await enforceRateLimit('create:' + merchant, limits.creationPerHour, 3_600_000);
   const id = crypto.randomUUID();
-  await db().prepare('INSERT INTO payments (id,merchant_wallet,title,description,asset,amount,amount_base_units,recipients,reference,expires_at,status,created_at,updated_at,creation_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(creation_key) DO NOTHING')
-    .bind(id, merchant, input.title.trim(), input.description, asset, String(input.amount), amount.toString(), JSON.stringify(recipients), input.reference, input.expiresAt, 'ACTIVE', now, now, body.signature).run();
+  await db().prepare('INSERT INTO payments (id,network,merchant_wallet,title,description,asset,amount,amount_base_units,recipients,reference,expires_at,status,created_at,updated_at,creation_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(creation_key) DO NOTHING')
+    .bind(id, network, merchant, input.title.trim(), input.description, asset, String(input.amount), amount.toString(), JSON.stringify(recipients), input.reference, input.expiresAt, 'ACTIVE', now, now, body.signature).run();
   const saved = await db().prepare('SELECT id FROM payments WHERE creation_key=?').bind(body.signature).first<{ id: string }>();
   if (!saved) throw new PaymentError('Payment could not be stored.', 503);
+  logEvent('payment_created', { paymentId: id, asset, amount: amount.toString() });
   return getPayment(saved.id);
 }
 export async function listPayments(req: Request) {
   const wallet = address(new URL(req.url).searchParams.get('wallet'));
   const stamp = Number(req.headers.get('x-auno-timestamp'));
   if (!Number.isSafeInteger(stamp) || Math.abs(Date.now() - stamp) > 300_000) throw new PaymentError('Connect and authorize payment history again.', 401);
-  verifySignature(wallet, historyMessage(wallet, stamp, publicOrigin(req)), req.headers.get('x-auno-signature') || '');
-  const rows = await db().prepare('SELECT * FROM payments WHERE merchant_wallet=? ORDER BY created_at DESC LIMIT 200').bind(wallet).all<Record<string, unknown>>();
+  verifySignature(wallet, historyMessage(wallet, stamp, publicOrigin(req), paymentNetwork()), req.headers.get('x-auno-signature') || '');
+  const rows = await db().prepare('SELECT * FROM payments WHERE merchant_wallet=? AND network=? ORDER BY created_at DESC LIMIT 200').bind(wallet, paymentNetwork()).all<Record<string, unknown>>();
   return { payments: rows.results.map(deserialize) };
 }
 async function getAttempt(id: string, attemptId: unknown, token: unknown) {
@@ -245,6 +304,7 @@ async function assertPayerHasFeeBudget(c: Connection, payment: PaymentIntent, pa
 }
 export async function preparePayment(req: Request, id: string) {
   sameOrigin(req);
+  assertSettlementEnabled();
   const body = await jsonBody(req);
   const payer = address(body.payer);
   const payment = await getPayment(id);
@@ -255,7 +315,7 @@ export async function preparePayment(req: Request, id: string) {
   await enforceRateLimit('attempt:payer:' + payer, limits.attemptsPerPayerWindow, limits.attemptWindowMs);
   await enforceRateLimit('attempt:source:' + sourceBucket(req), limits.attemptsPerSourceWindow, limits.attemptWindowMs);
   const c = connection();
-  await assertDevnet(c);
+  await assertNetwork(c);
   const attemptId = crypto.randomUUID();
   const secret = attemptToken();
   const block = await c.getLatestBlockhash('confirmed');
@@ -265,10 +325,12 @@ export async function preparePayment(req: Request, id: string) {
   const now = Date.now();
   await db().prepare('INSERT INTO payment_attempts (id,payment_id,payer,message_hash,attempt_token_hash,last_valid_block_height,created_at,updated_at,status) VALUES (?,?,?,?,?,?,?,?,?)')
     .bind(attemptId, id, payer, messageHash, await sha256(secret), block.lastValidBlockHeight, now, now, 'PREPARED').run();
-  return { attemptId, attemptToken: secret, transaction: transaction.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64'), network: 'devnet', lastValidBlockHeight: block.lastValidBlockHeight };
+  logEvent('payment_prepared', { paymentId: id, attemptId });
+  return { attemptId, attemptToken: secret, transaction: transaction.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64'), network: payment.network, lastValidBlockHeight: block.lastValidBlockHeight };
 }
 export async function submitPayment(req: Request, id: string) {
   sameOrigin(req);
+  assertSettlementEnabled();
   const body = await jsonBody(req);
   if (typeof body.transaction !== 'string' || body.transaction.length > 8_000) throw new PaymentError('Invalid signed transaction.');
   const attempt = await getAttempt(id, body.attemptId, body.attemptToken);
@@ -285,7 +347,7 @@ export async function submitPayment(req: Request, id: string) {
     throw new PaymentError('Signed transaction differs from the prepared payment.', 422);
   }
   const c = connection();
-  await assertDevnet(c);
+  await assertNetwork(c);
   if (await c.getBlockHeight('confirmed') > attempt.last_valid_block_height) {
     await db().prepare("UPDATE payment_attempts SET status='EXPIRED',updated_at=? WHERE id=? AND status='PREPARED'").bind(Date.now(), attempt.id).run();
     throw new PaymentError('This prepared transaction has expired. Start a fresh attempt.', 409);
@@ -295,7 +357,8 @@ export async function submitPayment(req: Request, id: string) {
   const claim = await db().prepare("UPDATE payment_attempts SET signature=?,status='SUBMITTED',updated_at=? WHERE id=? AND status='PREPARED'").bind(signature, Date.now(), attempt.id).run();
   if (!claim.meta.changes) throw new PaymentError('This attempt has already been submitted.', 409);
   try { await c.sendRawTransaction(transaction.serialize(), { skipPreflight: false, maxRetries: 2 }); }
-  catch (error) { return { attemptId: attempt.id, signature, status: 'SUBMITTED', message: relayFailureMessage(error) }; }
+  catch (error) { logEvent('payment_submission_uncertain', { paymentId: id, attemptId: attempt.id }); return { attemptId: attempt.id, signature, status: 'SUBMITTED', message: relayFailureMessage(error) }; }
+  logEvent('payment_submitted', { paymentId: id, attemptId: attempt.id, signature });
   return { attemptId: attempt.id, signature, status: 'SUBMITTED' };
 }
 function checkInstructions(payment: PaymentIntent, attempt: Attempt, parsed: { transaction: { message: { accountKeys: Array<{ pubkey: PublicKey; signer: boolean }>; instructions: Array<{ programId: PublicKey; parsed?: unknown }> } }; meta: { postTokenBalances?: Array<{ accountIndex: number; owner?: string; mint?: string }> | null } }) {
@@ -322,29 +385,64 @@ function checkInstructions(payment: PaymentIntent, attempt: Attempt, parsed: { t
     if (found.length !== 1) throw new PaymentError('Each recipient must receive exactly one intended transfer.');
   }
 }
-export async function verifyPayment(id: string, attemptId: unknown, token: unknown) {
-  const attempt = await getAttempt(id, attemptId, token);
-  const payment = await getPayment(id);
+async function verifyAttempt(payment: PaymentIntent, attempt: Attempt) {
   if (payment.status === 'PAID') return checkoutPayment(payment);
   if (!attempt.signature) return { status: attempt.status, signature: null };
   const c = connection();
-  await assertDevnet(c);
+  await assertNetwork(c);
   const parsed = await c.getParsedTransaction(attempt.signature, { commitment: 'finalized', maxSupportedTransactionVersion: 0 });
   if (!parsed) {
     const status = await c.getSignatureStatus(attempt.signature, { searchTransactionHistory: true });
     const nextStatus = status.value?.err ? 'REJECTED' : 'CONFIRMING';
     await db().prepare('UPDATE payment_attempts SET status=?,updated_at=? WHERE id=?').bind(nextStatus, Date.now(), attempt.id).run();
+    if (nextStatus === 'REJECTED') logEvent('payment_rejected', { paymentId: payment.id, attemptId: attempt.id });
     return { status: nextStatus, signature: attempt.signature };
   }
-  if (parsed.meta?.err || !parsed.meta || !parsed.blockTime || parsed.blockTime * 1_000 < payment.createdAt - 60_000 || parsed.blockTime * 1_000 > payment.expiresAt + 30_000) throw new PaymentError('Transaction failed or falls outside the payment window.');
+  if (parsed.meta?.err || !parsed.meta || !parsed.blockTime || parsed.blockTime * 1_000 < payment.createdAt - 60_000 || parsed.blockTime * 1_000 > payment.expiresAt + 30_000) {
+    await db().prepare("UPDATE payment_attempts SET status='REJECTED',updated_at=? WHERE id=? AND status IN ('SUBMITTED','CONFIRMING')").bind(Date.now(), attempt.id).run();
+    logEvent('payment_rejected', { paymentId: payment.id, attemptId: attempt.id });
+    throw new PaymentError('Transaction failed or falls outside the payment window.');
+  }
   const raw = await c.getTransaction(attempt.signature, { commitment: 'finalized', maxSupportedTransactionVersion: 0 });
   let finalized: Transaction | null = null;
   try { if (raw?.transaction) finalized = Transaction.populate(raw.transaction.message as Message, raw.transaction.signatures); } catch { /* rejected below */ }
-  if (!finalized || await sha256(paymentMessage(finalized)) !== attempt.message_hash) throw new PaymentError('Finalized transaction differs from the prepared payment.');
+  if (!finalized || await sha256(paymentMessage(finalized)) !== attempt.message_hash) {
+    await db().prepare("UPDATE payment_attempts SET status='REJECTED',updated_at=? WHERE id=? AND status IN ('SUBMITTED','CONFIRMING')").bind(Date.now(), attempt.id).run();
+    logEvent('payment_rejected', { paymentId: payment.id, attemptId: attempt.id });
+    throw new PaymentError('Finalized transaction differs from the prepared payment.');
+  }
   checkInstructions(payment, attempt, parsed as unknown as Parameters<typeof checkInstructions>[2]);
-  const paid = await db().prepare("UPDATE payments SET status='PAID',transaction_signature=?,payer=?,paid_at=?,updated_at=? WHERE id=? AND status='ACTIVE'").bind(attempt.signature, attempt.payer, parsed.blockTime * 1_000, Date.now(), id).run();
+  const paid = await db().prepare("UPDATE payments SET status='PAID',transaction_signature=?,payer=?,paid_at=?,updated_at=? WHERE id=? AND status='ACTIVE'").bind(attempt.signature, attempt.payer, parsed.blockTime * 1_000, Date.now(), payment.id).run();
   if (paid.meta.changes) await db().prepare("UPDATE payment_attempts SET status='VERIFIED',updated_at=? WHERE id=?").bind(Date.now(), attempt.id).run();
-  return checkoutPayment(await getPayment(id));
+  if (paid.meta.changes) logEvent('payment_verified', { paymentId: payment.id, attemptId: attempt.id, signature: attempt.signature });
+  return checkoutPayment(await getPayment(payment.id));
+}
+export async function verifyPayment(id: string, attemptId: unknown, token: unknown) {
+  const attempt = await getAttempt(id, attemptId, token);
+  return verifyAttempt(await getPayment(id), attempt);
+}
+function verifierBatchSize() {
+  const configured = runtime().AUNO_VERIFIER_BATCH_SIZE || '25';
+  if (!/^\d+$/.test(configured)) throw new PaymentError('Verifier batch deployment setting is invalid.', 503);
+  const value = Number(configured);
+  if (!Number.isSafeInteger(value) || value < 1 || value > 100) throw new PaymentError('Verifier batch deployment setting is invalid.', 503);
+  return value;
+}
+export async function verifyPendingPayments() {
+  const attempts = await db().prepare("SELECT payment_attempts.* FROM payment_attempts INNER JOIN payments ON payments.id=payment_attempts.payment_id WHERE payments.network=? AND payment_attempts.signature IS NOT NULL AND payment_attempts.status IN ('SUBMITTED','CONFIRMING') ORDER BY payment_attempts.updated_at ASC LIMIT ?").bind(paymentNetwork(), verifierBatchSize()).all<Attempt>();
+  let verified = 0;
+  let failed = 0;
+  for (const attempt of attempts.results) {
+    try {
+      const result = await verifyAttempt(await getPayment(attempt.payment_id), attempt);
+      if (result.status === 'PAID') verified += 1;
+    } catch (error) {
+      failed += 1;
+      console.error(JSON.stringify({ event: 'payment_verifier_failure', network: paymentNetwork(), paymentId: attempt.payment_id, attemptId: attempt.id, message: error instanceof PaymentError ? error.message : 'verification failed' }));
+    }
+  }
+  logEvent('payment_verifier_completed', { checked: attempts.results.length, verified, failed });
+  return { checked: attempts.results.length, verified, failed };
 }
 export async function publicAttempt(req: Request, id: string, attemptId: string) {
   const token = new URL(req.url).searchParams.get('attemptToken') || req.headers.get('x-auno-attempt-token');

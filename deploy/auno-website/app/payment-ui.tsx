@@ -10,11 +10,13 @@ import { toast } from "sonner";
 import { Footer, Nav } from "./ui";
 import {
   ASSETS,
+  NETWORKS,
   allocate,
   creationMessage,
   displayUnits,
   explorer,
   historyMessage,
+  networkForOrigin,
   percentToBps,
   toBaseUnits,
   validateSplitRecipients,
@@ -52,6 +54,10 @@ function errorText(error: unknown) {
   if (!(error instanceof Error)) return "Operation failed. Please try again.";
   if (error.message === "Failed to fetch") return "Could not reach AUNO. Check your connection and try again.";
   return error.message;
+}
+
+function browserNetwork() {
+  return networkForOrigin(typeof window === "undefined" ? "https://auno.cash" : window.location.origin);
 }
 
 function decodeTransaction(base64: string) {
@@ -167,10 +173,11 @@ function WalletButton({ session, onChange }: { session: WalletSession | null; on
 
 export function AppShell({ children, title, subtitle }: { children: React.ReactNode; title: string; subtitle: string }) {
   const pathname = usePathname();
+  const network = browserNetwork();
   const tabs = [
     { href: "/dashboard/create", label: "Create Payment", icon: FiPlusCircle },
     { href: "/dashboard/payments", label: "Payment History", icon: FiClock },
-    { href: "/split", label: "Split Payment", icon: FiGitBranch },
+    ...(network === "devnet" ? [{ href: "/split", label: "Split Payment", icon: FiGitBranch }] : []),
     { href: "/docs", label: "Help", icon: FiHelpCircle },
   ];
 
@@ -181,7 +188,7 @@ export function AppShell({ children, title, subtitle }: { children: React.ReactN
       <main className="page-shell">
         <div className="page-header">
           <div>
-            <div className="eyebrow">AUNO APP <span className="badge">DEVNET · DEVELOPER PREVIEW</span></div>
+            <div className="eyebrow">AUNO APP <span className="badge">{network === "mainnet-beta" ? "MAINNET BETA · ALLOWLISTED" : "DEVNET · DEVELOPER PREVIEW"}</span></div>
             <h1>{title}</h1>
             <p>{subtitle}</p>
           </div>
@@ -222,6 +229,8 @@ export function CreatePayment() {
   const [reference, setReference] = useState("");
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<PaymentIntent | null>(null);
+  const network = browserNetwork();
+  const mainnet = network === "mainnet-beta";
 
   function changeWallet(nextWallet: WalletSession | null) {
     setWallet(nextWallet);
@@ -254,7 +263,7 @@ export function CreatePayment() {
         timestamp: Date.now(),
         origin: location.origin,
       });
-      const signature = await wallet.signMessage(creationMessage(payload));
+      const signature = await wallet.signMessage(creationMessage(payload, network));
       setCreated(await api("/api/payments", { payload, signature }));
       toast.success("Payment link created.", { id: notification });
     } catch (error) {
@@ -269,14 +278,14 @@ export function CreatePayment() {
     <AppShell title="Create a payment." subtitle="Define the amount. Choose the destination. Share one link.">
       <div className="app-grid">
         <div className="panel">
-          <div className="panel-title">Payment details <span className="badge">DEVNET</span></div>
+          <div className="panel-title">Payment details <span className="badge">{mainnet ? "MAINNET BETA" : "DEVNET"}</span></div>
           <WalletButton session={wallet} onChange={changeWallet} />
           <form noValidate onSubmit={submit}>
             <label style={{ marginTop: 25 }}>Title<input required maxLength={120} placeholder="AUNO Test Payment" value={title} onChange={(event) => setTitle(event.target.value)} /></label>
-            <label>Description <span className="muted">(optional)</span><textarea maxLength={1000} placeholder="Testing AUNO Payment Link on Solana Devnet" value={description} onChange={(event) => setDescription(event.target.value)} /></label>
+            <label>Description <span className="muted">(optional)</span><textarea maxLength={1000} placeholder={mainnet ? "Mainnet Beta payment link" : "Testing AUNO Payment Link on Solana Devnet"} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
             <div className="two">
               <label>Amount<input required inputMode="decimal" placeholder="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
-              <label>Asset<select value={asset} onChange={(event) => setAsset(event.target.value as Asset)}><option>SOL</option><option>USDC</option></select></label>
+              <label>Asset<select value={asset} onChange={(event) => setAsset(event.target.value as Asset)}><option>SOL</option>{!mainnet && <option>USDC</option>}</select></label>
             </div>
             <label>Recipient wallet<input required spellCheck={false} placeholder="Full Solana wallet address" value={recipient} onChange={(event) => setRecipient(event.target.value)} /></label>
             <div className="two">
@@ -289,9 +298,9 @@ export function CreatePayment() {
           {created && <div className="notice"><strong>Share your payment link</strong><p className="break">{url}</p><div className="actions"><button className="button small" onClick={async () => { try { await navigator.clipboard.writeText(url); toast.success("Payment link copied."); } catch { toast.error("Copy failed. Select and copy the link above."); } }}>Copy Link</button><a className="text-link" href={`/pay/${created.id}`}>Open Checkout <FiArrowRight className="inline-icon action-icon" aria-hidden="true" /></a></div></div>}
         </div>
         <aside>
-          <div className="panel"><div className="eyebrow">CHECKOUT PREVIEW</div><h2>{title || "Your payment title"}</h2><p>{description || "Payment description appears here."}</p><div className="amount">{amount || "0.00"}<span>{asset}</span></div><div className="receipt-details"><div><span>Recipient</span><strong>{recipient || "Not selected"}</strong></div><div><span>Network</span><strong>Solana Devnet</strong></div><div><span>Settlement</span><strong>Direct to recipient</strong></div></div></div>
-          <div className="notice">Use test assets only. SOL and USDC signing flows are implemented but have not passed real wallet end-to-end acceptance testing. Never enter a seed phrase or private key.</div>
-          <a className="text-link" href="/docs#getting-started">How to get devnet test assets <FiArrowRight className="inline-icon action-icon" aria-hidden="true" /></a>
+          <div className="panel"><div className="eyebrow">CHECKOUT PREVIEW</div><h2>{title || "Your payment title"}</h2><p>{description || "Payment description appears here."}</p><div className="amount">{amount || "0.00"}<span>{asset}</span></div><div className="receipt-details"><div><span>Recipient</span><strong>{recipient || "Not selected"}</strong></div><div><span>Network</span><strong>{NETWORKS[network].label}</strong></div><div><span>Settlement</span><strong>Direct to recipient</strong></div></div></div>
+          <div className="notice">{mainnet ? "Allowlisted Mainnet Beta · SOL only · 0.1 SOL maximum. Never enter a seed phrase or private key." : "Use test assets only. SOL and USDC signing flows are implemented but have not passed real wallet end-to-end acceptance testing. Never enter a seed phrase or private key."}</div>
+          {!mainnet && <a className="text-link" href="/docs#getting-started">How to get devnet test assets <FiArrowRight className="inline-icon action-icon" aria-hidden="true" /></a>}
         </aside>
       </div>
     </AppShell>
@@ -377,7 +386,9 @@ export function Checkout({ id }: { id: string }) {
     }
   }
 
-  return <><Nav /><main className="page-shell"><div className="checkout panel"><div className="panel-title">AUNO CHECKOUT <span className="badge">DEVNET</span></div>{payment ? <><h1>{payment.title}</h1><p>{payment.description}</p><div className="amount">{payment.amount}<span>{payment.asset}</span></div><div className="receipt-details"><div><span>Recipient</span><strong>{payment.recipients[0].address}</strong></div><div><span>Network</span><strong>Solana Devnet</strong></div><div><span>Expires</span><strong>{new Date(payment.expiresAt).toLocaleString("en-US")}</strong></div>{payment.reference && <div><span>Reference</span><strong>{payment.reference}</strong></div>}</div><div className="notice" role="status">{state.replaceAll("_", " ")}</div>{payment.status === "PAID" ? <><h2>Payment Confirmed</h2><p>Independently verified at finalized commitment.</p><div className="receipt-details"><div><span>Payment ID</span><strong>{payment.id}</strong></div><div><span>Payer</span><strong>{payment.payer}</strong></div><div><span>Settled</span><strong>{payment.paidAt ? new Date(payment.paidAt).toISOString() : ""}</strong></div><div><span>Signature</span><strong>{payment.transactionSignature}</strong></div></div><a className="button wide" style={{ marginTop: 25 }} href={explorer(payment.transactionSignature!)} target="_blank" rel="noreferrer">View verified transaction <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a></> : <>{!signature && payment.status !== "EXPIRED" && <><WalletButton session={wallet} onChange={setWallet} />{wallet && <><p className="detail-note break">Paying from {wallet.address}. You will send {payment.amount} {payment.asset} on Devnet to the recipient above, plus network fees{payment.asset === "USDC" ? " and any required recipient token-account rent" : ""}.</p><button className="button wide" disabled={busy} onClick={pay}>{busy ? "Payment in progress…" : `Pay ${payment.amount} ${payment.asset} on Devnet`}</button></>}</>}{signature && <><p className="break">Submitted signature: <a className="text-link" href={explorer(signature)} target="_blank" rel="noreferrer">{signature}</a></p><button className="button wide" disabled={busy} onClick={() => verify()}>{busy ? "Verifying…" : "Verify Payment"}</button><p className="detail-note">Finalization can take time. Retry verification before attempting another payment.</p></>}</>}<p className="detail-note">Developer preview · Test assets only · No custody</p></> : <p>{state}</p>}</div></main><Footer /></>;
+  const networkLabel = payment ? NETWORKS[payment.network].label : "Solana";
+  const networkBadge = payment?.network === "mainnet-beta" ? "MAINNET BETA" : "DEVNET";
+  return <><Nav /><main className="page-shell"><div className="checkout panel"><div className="panel-title">AUNO CHECKOUT <span className="badge">{networkBadge}</span></div>{payment ? <><h1>{payment.title}</h1><p>{payment.description}</p><div className="amount">{payment.amount}<span>{payment.asset}</span></div><div className="receipt-details"><div><span>Recipient</span><strong>{payment.recipients[0].address}</strong></div><div><span>Network</span><strong>{networkLabel}</strong></div><div><span>Expires</span><strong>{new Date(payment.expiresAt).toLocaleString("en-US")}</strong></div>{payment.reference && <div><span>Reference</span><strong>{payment.reference}</strong></div>}</div><div className="notice" role="status">{state.replaceAll("_", " ")}</div>{payment.status === "PAID" ? <><h2>Payment Confirmed</h2><p>Independently verified at finalized commitment.</p><div className="receipt-details"><div><span>Payment ID</span><strong>{payment.id}</strong></div><div><span>Payer</span><strong>{payment.payer}</strong></div><div><span>Settled</span><strong>{payment.paidAt ? new Date(payment.paidAt).toISOString() : ""}</strong></div><div><span>Signature</span><strong>{payment.transactionSignature}</strong></div></div><a className="button wide" style={{ marginTop: 25 }} href={explorer(payment.transactionSignature!, payment.network)} target="_blank" rel="noreferrer">View verified transaction <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a></> : <>{!signature && payment.status !== "EXPIRED" && <><WalletButton session={wallet} onChange={setWallet} />{wallet && <><p className="detail-note break">Paying from {wallet.address}. You will send {payment.amount} {payment.asset} on {networkLabel} to the recipient above, plus network fees{payment.asset === "USDC" ? " and any required recipient token-account rent" : ""}.</p><button className="button wide" disabled={busy} onClick={pay}>{busy ? "Payment in progress…" : `Pay ${payment.amount} ${payment.asset} on ${networkLabel}`}</button></>}</>}{signature && <><p className="break">Submitted signature: <a className="text-link" href={explorer(signature, payment.network)} target="_blank" rel="noreferrer">{signature}</a></p><button className="button wide" disabled={busy} onClick={() => verify()}>{busy ? "Verifying…" : "Verify Payment"}</button><p className="detail-note">Finalization can take time. Retry verification before attempting another payment.</p></>}</>}<p className="detail-note">{payment.network === "mainnet-beta" ? "Allowlisted Mainnet Beta · Non-custodial" : "Developer preview · Test assets only · No custody"}</p></> : <p>{state}</p>}</div></main><Footer /></>;
 }
 
 export function PaymentHistory() {
@@ -396,7 +407,7 @@ export function PaymentHistory() {
     const notification = toast.loading("Authorizing payment history…");
     try {
       const timestamp = Date.now();
-      const signature = await wallet.signMessage(historyMessage(wallet.address, timestamp, location.origin));
+      const signature = await wallet.signMessage(historyMessage(wallet.address, timestamp, location.origin, browserNetwork()));
       const data = await api<{ payments: PaymentIntent[] }>(`/api/payments?wallet=${wallet.address}`, undefined, { "x-auno-signature": signature, "x-auno-timestamp": String(timestamp) });
       setPayments(data.payments);
       toast.success(`${data.payments.length} payment${data.payments.length === 1 ? "" : "s"} loaded.`, { id: notification });

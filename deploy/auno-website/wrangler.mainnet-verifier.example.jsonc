@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "auno-mainnet-beta-verifier",
+  "main": "workers/mainnet-verifier.ts",
+  "compatibility_date": "2026-05-15",
+  "triggers": { "crons": ["*/2 * * * *"] },
+  "vars": { "AUNO_APP_ORIGIN": "https://mainnet.auno.cash" },
+  "observability": { "enabled": true }
+}

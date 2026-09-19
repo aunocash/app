@@ -1,13 +1,13 @@
 "use client";
 
-import { WalletIcon } from "@web3icons/react/dynamic";
 import { Transaction } from "@solana/web3.js";
 import { Wallet } from "lucide-react";
 import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiCopy, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers } from "react-icons/fi";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { DevnetOnlyRibbon, Footer, Nav } from "./ui";
+import { MainnetBetaRibbon, Footer, Nav } from "./ui";
 import {
   ASSETS,
   NETWORKS,
@@ -26,6 +26,11 @@ import {
 } from "@/lib/payments/model";
 import { availableWallets, connectWallet, type WalletSession } from "@/lib/payments/wallet";
 
+const WalletIcon = dynamic(
+  () => import("@web3icons/react/dynamic").then(({ WalletIcon: DynamicWalletIcon }) => DynamicWalletIcon),
+  { ssr: false, loading: () => <span className="wallet-icon-fallback"><Wallet size={18} aria-hidden="true" /></span> },
+);
+
 type SplitSettlement = {
   paymentId: string;
   attemptId: string;
@@ -36,6 +41,8 @@ type SplitSettlement = {
   error?: string;
   receipt?: PaymentIntent;
 };
+
+export type CheckoutPayment = Omit<PaymentIntent, "merchantWallet" | "updatedAt">;
 
 async function api<T = PaymentIntent>(path: string, body?: unknown, headers?: Record<string, string>) {
   const response = await fetch(path, {
@@ -58,6 +65,10 @@ function errorText(error: unknown) {
 
 function browserNetwork() {
   return networkForOrigin(typeof window === "undefined" ? "https://auno.cash" : window.location.origin);
+}
+
+function walletChain(): "solana:devnet" | "solana:mainnet" {
+  return browserNetwork() === "mainnet-beta" ? "solana:mainnet" : "solana:devnet";
 }
 
 function decodeTransaction(base64: string) {
@@ -96,7 +107,14 @@ function WalletButton({ session, onChange }: { session: WalletSession | null; on
   const [busy, setBusy] = useState(false);
 
   function openWalletOptions() {
-    const detected = availableWallets().map((wallet) => wallet.name);
+    let detected: string[];
+    try {
+      detected = availableWallets(walletChain()).map((wallet) => wallet.name);
+    } catch {
+      setOpen(false);
+      toast.error("Wallet detection failed.", { description: "Reload the page, then try connecting your wallet again." });
+      return;
+    }
     setNames(detected);
     if (!detected.length) {
       setOpen(false);
@@ -116,7 +134,7 @@ function WalletButton({ session, onChange }: { session: WalletSession | null; on
     setBusy(true);
     const notification = toast.loading(`Connecting ${name}…`);
     try {
-      onChange(await connectWallet(name));
+      onChange(await connectWallet(name, walletChain()));
       setOpen(false);
       toast.success(`${name} connected.`, { id: notification });
     } catch (error) {
@@ -188,7 +206,7 @@ export function AppShell({ children, title, subtitle }: { children: React.ReactN
       <main className="page-shell">
         <div className="page-header">
           <div>
-            <div className="eyebrow">AUNO APP <span className="badge">{network === "mainnet-beta" ? "MAINNET BETA · ALLOWLISTED" : "DEVNET · DEVELOPER PREVIEW"}</span></div>
+            <div className="eyebrow">AUNO APP <span className="badge">{network === "mainnet-beta" ? "MAINNET BETA · PUBLIC" : "DEVNET · DEVELOPER PREVIEW"}</span></div>
             <h1>{title}</h1>
             <p>{subtitle}</p>
           </div>
@@ -299,8 +317,8 @@ export function CreatePayment() {
         </div>
         <aside>
           <div className="panel"><div className="eyebrow">CHECKOUT PREVIEW</div><h2>{title || "Your payment title"}</h2><p>{description || "Payment description appears here."}</p><div className="amount">{amount || "0.00"}<span>{asset}</span></div><div className="receipt-details"><div><span>Recipient</span><strong>{recipient || "Not selected"}</strong></div><div><span>Network</span><strong>{NETWORKS[network].label}</strong></div><div><span>Settlement</span><strong>Direct to recipient</strong></div></div></div>
-          <div className="notice">{mainnet ? "Allowlisted Mainnet Beta · SOL only · 0.1 SOL maximum. Never enter a seed phrase or private key." : "Use test assets only. SOL and USDC signing flows are implemented but have not passed real wallet end-to-end acceptance testing. Never enter a seed phrase or private key."}</div>
-          {mainnet && <DevnetOnlyRibbon features="USDC and split payments" />}
+          <div className="notice">{mainnet ? "Public Mainnet Beta · SOL only · 0.1 SOL maximum. Never enter a seed phrase or private key." : "Use test assets only. SOL and USDC signing flows are implemented but have not passed real wallet end-to-end acceptance testing. Never enter a seed phrase or private key."}</div>
+          {mainnet && <MainnetBetaRibbon features="USDC and split payments" />}
           {!mainnet && <a className="text-link" href="/docs#getting-started">How to get devnet test assets <FiArrowRight className="inline-icon action-icon" aria-hidden="true" /></a>}
         </aside>
       </div>
@@ -308,18 +326,24 @@ export function CreatePayment() {
   );
 }
 
-export function Checkout({ id }: { id: string }) {
-  const [payment, setPayment] = useState<PaymentIntent | null>(null);
+export function Checkout({ id, initialPayment = null }: { id: string; initialPayment?: CheckoutPayment | null }) {
+  const [payment, setPayment] = useState<CheckoutPayment | null>(initialPayment);
   const [wallet, setWallet] = useState<WalletSession | null>(null);
   const [busy, setBusy] = useState(false);
-  const [state, setState] = useState("Loading payment…");
-  const [signature, setSignature] = useState("");
+  const [state, setState] = useState(initialPayment?.status ?? "Loading payment…");
+  const [signature, setSignature] = useState(initialPayment?.transactionSignature || "");
   const [attempt, setAttempt] = useState<{ id: string; token: string } | null>(null);
 
   useEffect(() => {
+    if (initialPayment) {
+      setPayment(initialPayment);
+      setSignature(initialPayment.transactionSignature || "");
+      setState(initialPayment.status);
+      return;
+    }
     let active = true;
     const notification = toast.loading("Loading payment…");
-    api(`/api/payments/${id}`).then((nextPayment) => {
+    api<CheckoutPayment>(`/api/payments/${id}`).then((nextPayment) => {
       if (!active) return;
       setPayment(nextPayment);
       setSignature(nextPayment.transactionSignature || "");
@@ -331,7 +355,7 @@ export function Checkout({ id }: { id: string }) {
       toast.error(errorText(error), { id: notification });
     });
     return () => { active = false; toast.dismiss(notification); };
-  }, [id]);
+  }, [id, initialPayment]);
 
   async function verify(nextSignature = signature) {
     if (!nextSignature) return;
@@ -356,6 +380,11 @@ export function Checkout({ id }: { id: string }) {
   async function pay() {
     if (!wallet || !payment) {
       toast.error("Connect a wallet before paying.");
+      return;
+    }
+    if (payment.recipients.some((recipient) => recipient.address === wallet.address)) {
+      setState("Choose a different payer wallet.");
+      toast.error("Payer and recipient cannot be the same wallet.", { description: "Connect a different wallet before paying." });
       return;
     }
     setBusy(true);
@@ -390,7 +419,7 @@ export function Checkout({ id }: { id: string }) {
 
   const networkLabel = payment ? NETWORKS[payment.network].label : "Solana";
   const networkBadge = payment?.network === "mainnet-beta" ? "MAINNET BETA" : "DEVNET";
-  return <><Nav /><main className="page-shell"><div className="checkout panel"><div className="panel-title">AUNO CHECKOUT <span className="badge">{networkBadge}</span></div>{payment ? <><h1>{payment.title}</h1><p>{payment.description}</p><div className="amount">{payment.amount}<span>{payment.asset}</span></div><div className="receipt-details"><div><span>Recipient</span><strong>{payment.recipients[0].address}</strong></div><div><span>Network</span><strong>{networkLabel}</strong></div><div><span>Expires</span><strong>{new Date(payment.expiresAt).toLocaleString("en-US")}</strong></div>{payment.reference && <div><span>Reference</span><strong>{payment.reference}</strong></div>}</div><div className="notice" role="status">{state.replaceAll("_", " ")}</div>{payment.status === "PAID" ? <><h2>Payment Confirmed</h2><p>Independently verified at finalized commitment.</p><div className="receipt-details"><div><span>Payment ID</span><strong>{payment.id}</strong></div><div><span>Payer</span><strong>{payment.payer}</strong></div><div><span>Settled</span><strong>{payment.paidAt ? new Date(payment.paidAt).toISOString() : ""}</strong></div><div><span>Signature</span><strong>{payment.transactionSignature}</strong></div></div><a className="button wide" style={{ marginTop: 25 }} href={explorer(payment.transactionSignature!, payment.network)} target="_blank" rel="noreferrer">View verified transaction <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a></> : <>{!signature && payment.status !== "EXPIRED" && <><WalletButton session={wallet} onChange={setWallet} />{wallet && <><p className="detail-note break">Paying from {wallet.address}. You will send {payment.amount} {payment.asset} on {networkLabel} to the recipient above, plus network fees{payment.asset === "USDC" ? " and any required recipient token-account rent" : ""}.</p><button className="button wide" disabled={busy} onClick={pay}>{busy ? "Payment in progress…" : `Pay ${payment.amount} ${payment.asset} on ${networkLabel}`}</button></>}</>}{signature && <><p className="break">Submitted signature: <a className="text-link" href={explorer(signature, payment.network)} target="_blank" rel="noreferrer">{signature}</a></p><button className="button wide" disabled={busy} onClick={() => verify()}>{busy ? "Verifying…" : "Verify Payment"}</button><p className="detail-note">Finalization can take time. Retry verification before attempting another payment.</p></>}</>}<p className="detail-note">{payment.network === "mainnet-beta" ? "Allowlisted Mainnet Beta · Non-custodial" : "Developer preview · Test assets only · No custody"}</p></> : <p>{state}</p>}</div></main><Footer /></>;
+  return <><Nav network={payment?.network === "mainnet-beta" ? "mainnet" : undefined} /><main className="page-shell"><div className="checkout panel"><div className="panel-title">AUNO CHECKOUT <span className="badge">{networkBadge}</span></div>{payment ? <><h1>{payment.title}</h1><p>{payment.description}</p><div className="amount">{payment.amount}<span>{payment.asset}</span></div><div className="receipt-details"><div><span>Recipient</span><strong>{payment.recipients[0].address}</strong></div><div><span>Network</span><strong>{networkLabel}</strong></div><div><span>Expires</span><strong>{new Date(payment.expiresAt).toISOString()}</strong></div>{payment.reference && <div><span>Reference</span><strong>{payment.reference}</strong></div>}</div><div className="notice" role="status">{state.replaceAll("_", " ")}</div>{payment.status === "PAID" ? <><h2>Payment Confirmed</h2><p>Independently verified at finalized commitment.</p><div className="receipt-details"><div><span>Payment ID</span><strong>{payment.id}</strong></div><div><span>Payer</span><strong>{payment.payer}</strong></div><div><span>Settled</span><strong>{payment.paidAt ? new Date(payment.paidAt).toISOString() : ""}</strong></div><div><span>Signature</span><strong>{payment.transactionSignature}</strong></div></div><a className="button wide" style={{ marginTop: 25 }} href={explorer(payment.transactionSignature!, payment.network)} target="_blank" rel="noreferrer">View verified transaction <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a></> : <>{!signature && payment.status !== "EXPIRED" && <><WalletButton session={wallet} onChange={setWallet} />{wallet && <><p className="detail-note break">Paying from {wallet.address}. You will send {payment.amount} {payment.asset} on {networkLabel} to the recipient above, plus network fees{payment.asset === "USDC" ? " and any required recipient token-account rent" : ""}.</p><button className="button wide" disabled={busy} onClick={pay}>{busy ? "Payment in progress…" : `Pay ${payment.amount} ${payment.asset} on ${networkLabel}`}</button></>}</>}{signature && <><p className="break">Submitted signature: <a className="text-link" href={explorer(signature, payment.network)} target="_blank" rel="noreferrer">{signature}</a></p><button className="button wide" disabled={busy} onClick={() => verify()}>{busy ? "Verifying…" : "Verify Payment"}</button><p className="detail-note">Finalization can take time. Retry verification before attempting another payment.</p></>}</>}<p className="detail-note">{payment.network === "mainnet-beta" ? "Public Mainnet Beta · Non-custodial" : "Developer preview · Test assets only · No custody"}</p></> : <p>{state}</p>}</div></main><Footer network={payment?.network === "mainnet-beta" ? "mainnet" : undefined} /></>;
 }
 
 export function PaymentHistory() {

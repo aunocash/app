@@ -1,6 +1,6 @@
 # Mainnet Beta Operations
 
-Mainnet Beta is restricted to standard SOL payment links at `https://mainnet.auno.cash`. It is not public, does not support USDC or split settlement, and has a hard maximum of `0.1 SOL` per payment.
+Mainnet Beta provides public standard SOL payment links at `https://mainnet.auno.cash`. It does not support USDC or split settlement and has a hard maximum of `0.1 SOL` per payment.
 
 ## Separate deployment
 
@@ -16,7 +16,6 @@ Mainnet Beta is restricted to standard SOL payment links at `https://mainnet.aun
 SOLANA_NETWORK=mainnet-beta
 AUNO_PUBLIC_ORIGIN=https://mainnet.auno.cash
 AUNO_MAINNET_ENABLED=false
-AUNO_ALLOWED_MERCHANTS=<comma-separated approved merchant wallets>
 AUNO_MAX_SOL_LAMPORTS=100000000
 AUNO_VERIFIER_BATCH_SIZE=25
 ```
@@ -34,7 +33,7 @@ AUNO_VERIFIER_BATCH_SIZE=25
 ## Controlled activation
 
 1. Keep `AUNO_MAINNET_ENABLED=false` while validating DNS, health, logs, alerting, D1 recovery, and the verifier Worker.
-2. Add one approved merchant wallet and enable settlement.
+2. Enable settlement to allow public signed payment-link creation.
 3. Complete and verify `0.001`, `0.01`, and `0.1 SOL` transactions with Explorer receipts and recipient balance checks.
 4. Disable the kill switch immediately for any unexpected RPC, verification, or wallet-signing behavior. Do not delete records during incident response.
 

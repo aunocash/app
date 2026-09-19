@@ -24,7 +24,6 @@ case "$SOLANA_NETWORK" in
       exit 64
     fi
     : "${SOLANA_RPC_URL:?Set SOLANA_RPC_URL to a dedicated Solana Mainnet RPC endpoint}"
-    : "${AUNO_ALLOWED_MERCHANTS:?Set AUNO_ALLOWED_MERCHANTS to approved Mainnet merchant wallets}"
     : "${AUNO_VERIFIER_TOKEN:?Set AUNO_VERIFIER_TOKEN to a random server-only value}"
     if [ "${#AUNO_VERIFIER_TOKEN}" -lt 32 ]; then
       echo "AUNO_VERIFIER_TOKEN must contain at least 32 characters." >&2
@@ -64,7 +63,6 @@ umask 077
   fi
   if [ "$SOLANA_NETWORK" = "mainnet-beta" ]; then
     write_runtime_value AUNO_MAINNET_ENABLED "${AUNO_MAINNET_ENABLED:-false}"
-    write_runtime_value AUNO_ALLOWED_MERCHANTS "$AUNO_ALLOWED_MERCHANTS"
     write_runtime_value AUNO_MAX_SOL_LAMPORTS "${AUNO_MAX_SOL_LAMPORTS:-100000000}"
     write_runtime_value AUNO_VERIFIER_BATCH_SIZE "${AUNO_VERIFIER_BATCH_SIZE:-25}"
     write_runtime_value AUNO_VERIFIER_TOKEN "$AUNO_VERIFIER_TOKEN"

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
+import { ClientRuntimeGuard } from "./client-runtime-guard";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" data-theme="dark">
       <body className="antialiased">
+        <ClientRuntimeGuard />
         {children}
         <Toaster />
       </body>

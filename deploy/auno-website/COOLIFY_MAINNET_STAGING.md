@@ -22,7 +22,6 @@ Set these as service secrets/environment values:
 
 ``TICK@@env
 SOLANA_RPC_URL=https://your-dedicated-authenticated-mainnet-rpc.example
-AUNO_ALLOWED_MERCHANTS=<comma-separated approved merchant wallets>
 AUNO_VERIFIER_TOKEN=<random value of at least 32 characters>
 ``TICK@@
 

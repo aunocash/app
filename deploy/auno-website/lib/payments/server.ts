@@ -7,7 +7,7 @@ import { ASSETS, NETWORKS, MEMO_PROGRAM, allocate, creationMessage, displayUnits
 import { paymentPolicy } from './policy';
 
 export class PaymentError extends Error { constructor(message: string, public status = 400) { super(message); } }
-type Runtime = Record<string, unknown> & { DB?: D1Database; SOLANA_RPC_URL?: string; SOLANA_NETWORK?: string; AUNO_PUBLIC_ORIGIN?: string; AUNO_TRUSTED_CLIENT_HEADER?: string; AUNO_MAINNET_ENABLED?: string; AUNO_DEVNET_SPLITS_ENABLED?: string; AUNO_ALLOWED_MERCHANTS?: string; AUNO_MAX_SOL_LAMPORTS?: string; AUNO_VERIFIER_BATCH_SIZE?: string; AUNO_VERIFIER_TOKEN?: string };
+type Runtime = Record<string, unknown> & { DB?: D1Database; SOLANA_RPC_URL?: string; SOLANA_NETWORK?: string; AUNO_PUBLIC_ORIGIN?: string; AUNO_TRUSTED_CLIENT_HEADER?: string; AUNO_MAINNET_ENABLED?: string; AUNO_DEVNET_SPLITS_ENABLED?: string; AUNO_MAX_SOL_LAMPORTS?: string; AUNO_VERIFIER_BATCH_SIZE?: string; AUNO_VERIFIER_TOKEN?: string };
 type Attempt = { id: string; payment_id: string; payer: string; message_hash: string; attempt_token_hash: string; last_valid_block_height: number; signature: string | null; status: string };
 const CANONICAL_BLOCKHASH = '11111111111111111111111111111111';
 const COMPUTE_BUDGET_PROGRAM = 'ComputeBudget111111111111111111111111111111';
@@ -36,21 +36,12 @@ function configuredOrigin() {
     return origin.origin;
   } catch { throw new PaymentError('Payment origin deployment setting is invalid.', 503); }
 }
-function mainnetEnabled() { return runtime().AUNO_MAINNET_ENABLED === 'true'; }
+export function mainnetEnabled() { return runtime().AUNO_MAINNET_ENABLED === 'true'; }
 function devnetSplitsEnabled() { const token = runtime().AUNO_VERIFIER_TOKEN; return runtime().AUNO_DEVNET_SPLITS_ENABLED === 'true' && typeof token === 'string' && token.length >= 32; }
 function isSplitPayment(payment: Pick<PaymentIntent, 'recipients'>) { return payment.recipients.length > 1; }
 function assertSettlementEnabled(payment?: Pick<PaymentIntent, 'network' | 'recipients'>) {
   if (paymentNetwork() === 'mainnet-beta' && !mainnetEnabled()) throw new PaymentError('Mainnet Beta settlement is not enabled.', 503);
   if (payment?.network === 'devnet' && isSplitPayment(payment) && !devnetSplitsEnabled()) throw new PaymentError('Devnet split settlement is not enabled yet.', 503);
-}
-function mainnetMerchantAllowlist() {
-  const configured = runtime().AUNO_ALLOWED_MERCHANTS;
-  if (typeof configured !== 'string' || !configured.trim()) throw new PaymentError('Mainnet merchant allowlist is not configured.', 503);
-  try { return new Set(configured.split(/[\s,]+/).filter(Boolean).map((wallet) => address(wallet))); }
-  catch { throw new PaymentError('Mainnet merchant allowlist is invalid.', 503); }
-}
-function assertMerchantCanCreate(merchant: string) {
-  if (paymentNetwork() === 'mainnet-beta' && !mainnetMerchantAllowlist().has(merchant)) throw new PaymentError('This merchant wallet is not enabled for Mainnet Beta.', 403);
 }
 function mainnetMaxSolLamports() {
   const configured = runtime().AUNO_MAX_SOL_LAMPORTS || '100000000';
@@ -240,7 +231,6 @@ export async function createPayment(req: Request) {
   try { input = JSON.parse(body.payload) as Record<string, unknown>; } catch { throw new PaymentError('Invalid payment request.'); }
   const merchant = address(input.merchantWallet);
   verifySignature(merchant, creationMessage(body.payload, network), body.signature);
-  assertMerchantCanCreate(merchant);
   const existing = await db().prepare('SELECT id FROM payments WHERE creation_key=?').bind(body.signature).first<{ id: string }>();
   if (existing) return getPayment(existing.id);
   if (input.origin !== origin || !Number.isSafeInteger(input.timestamp) || Math.abs(Date.now() - Number(input.timestamp)) > 300_000) throw new PaymentError('Request expired. Sign a fresh request.');

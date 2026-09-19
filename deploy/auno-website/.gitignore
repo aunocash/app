@@ -49,3 +49,6 @@ next-env.d.ts
 !/.env.example
 /work-local-wrangler.json
 *.tsbuildinfo
+
+/wrangler.mainnet.jsonc
+/wrangler.mainnet-verifier.jsonc

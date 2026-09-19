@@ -434,10 +434,8 @@ if (hasWalletSignature) {
     const signature = walletBroadcastSignature(body.signature);
     const c = connection();
     await assertNetwork(c);
-    if (await c.getBlockHeight('confirmed') > attempt.last_valid_block_height) {
-      await db().prepare("UPDATE payment_attempts SET status='EXPIRED',updated_at=? WHERE id=? AND status='PREPARED'").bind(Date.now(), attempt.id).run();
-      throw new PaymentError('This prepared transaction has expired. Start a fresh attempt.', 409);
-    }
+    // The wallet has already broadcast this transaction. Do not discard an on-chain payment
+    // based on the original blockhash height; final verification remains authoritative.
     const claim = await db().prepare("UPDATE payment_attempts SET signature=?,status='SUBMITTED',updated_at=? WHERE id=? AND status='PREPARED'").bind(signature, Date.now(), attempt.id).run();
     if (!claim.meta.changes) throw new PaymentError('This attempt has already been submitted.', 409);
     logEvent('payment_submitted', { paymentId: id, attemptId: attempt.id, signature, recipientCount: payment.recipients.length, split: isSplitPayment(payment), relay: 'wallet' });
@@ -603,8 +601,9 @@ async function verifyAttempt(payment: PaymentIntent, attempt: Attempt) {
     await checkInstructions(payment, attempt, parsed as unknown as Parameters<typeof checkInstructions>[2]);
   } catch (error) {
     await db().prepare("UPDATE payment_attempts SET status='REJECTED',updated_at=? WHERE id=? AND status IN ('SUBMITTED','CONFIRMING')").bind(Date.now(), attempt.id).run();
-    logEvent('payment_rejected', { paymentId: payment.id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment) });
-    logSplitEvent(payment.network, 'rejected', { paymentId: payment.id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment), reason: error instanceof PaymentError ? error.message : 'instruction_validation' });
+    const reason = error instanceof PaymentError ? error.message : 'instruction_validation';
+    logEvent('payment_verification_rejected', { paymentId: payment.id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment), reason });
+    logSplitEvent(payment.network, 'rejected', { paymentId: payment.id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment), reason });
     throw error;
   }
   const paid = await db().prepare("UPDATE payments SET status='PAID',transaction_signature=?,payer=?,paid_at=?,updated_at=? WHERE id=? AND status='ACTIVE'").bind(attempt.signature, attempt.payer, parsed.blockTime * 1_000, Date.now(), payment.id).run();

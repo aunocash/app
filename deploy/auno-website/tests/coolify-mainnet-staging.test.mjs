@@ -11,6 +11,7 @@ const readyRoute = await readFile(new URL("../app/api/ready/route.ts", import.me
 
 assert.match(compose, /SOLANA_NETWORK: mainnet-beta/);
 assert.match(compose, /AUNO_MAINNET_ENABLED: "false"/);
+assert.match(compose, /AUNO_MAINNET_SPLITS_ENABLED: "false"/);
 assert.doesNotMatch(compose, /\\$\\{AUNO_MAINNET_ENABLED/);
 assert.ok(compose.includes("auno-mainnet-staging-d1:/app/.wrangler/state"));
 assert.ok(compose.includes("- /usr/local/bin/auno-mainnet-verifier"));

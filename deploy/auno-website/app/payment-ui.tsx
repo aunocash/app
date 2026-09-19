@@ -7,7 +7,7 @@ import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle
 import { usePathname } from "next/navigation";
 import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { toast } from "sonner";
-import { MainnetBetaRibbon, Footer, Nav } from "./ui";
+import { MainnetBetaRibbon, Footer, Nav, useMainnetSplitsCapability } from "./ui";
 import {
   ASSETS,
   NETWORKS,
@@ -172,10 +172,11 @@ function WalletButton({ session, onChange }: { session: WalletSession | null; on
 export function AppShell({ children, title, subtitle }: { children: React.ReactNode; title: string; subtitle: string }) {
   const pathname = usePathname();
   const network = useBrowserNetwork();
+  const mainnetSplits = useMainnetSplitsCapability(network === "mainnet-beta");
   const tabs = [
     { href: "/dashboard/create", label: "Create Payment", icon: FiPlusCircle },
     { href: "/dashboard/payments", label: "Payment History", icon: FiClock },
-    ...(network === "devnet" ? [{ href: "/split", label: "Split Payment", icon: FiGitBranch }] : []),
+    ...(network === "devnet" || mainnetSplits ? [{ href: "/split", label: "Split Payment", icon: FiGitBranch }] : []),
     { href: "/docs", label: "Help", icon: FiHelpCircle },
   ];
 
@@ -231,6 +232,7 @@ export function CreatePayment() {
   const [showCheckout, setShowCheckout] = useState(false);
   const network = useBrowserNetwork();
   const mainnet = network === "mainnet-beta";
+  const mainnetSplits = useMainnetSplitsCapability(mainnet);
 
   function changeWallet(nextWallet: WalletSession | null) {
     setWallet(nextWallet);
@@ -331,7 +333,7 @@ export function CreatePayment() {
         <aside>
           <div className="panel"><div className="eyebrow">CHECKOUT PREVIEW</div><h2>{title || "Your payment title"}</h2><p>{description || "Payment description appears here."}</p><div className="amount">{amount || "0.00"}<span>{asset}</span></div><div className="receipt-details"><div><span>Recipient</span><strong>{recipient || "Not selected"}</strong></div><div><span>Network</span><strong>{NETWORKS[network].label}</strong></div><div><span>Settlement</span><strong>Direct to recipient</strong></div></div></div>
           <div className="notice">{mainnet ? "Public Mainnet Beta · SOL only · 0.1 SOL maximum. Never enter a seed phrase or private key." : "Use test assets only. SOL and USDC signing flows are implemented but have not passed real wallet end-to-end acceptance testing. Never enter a seed phrase or private key."}</div>
-          {mainnet && <MainnetBetaRibbon features="USDC and split payments" />}
+          {mainnet && <MainnetBetaRibbon features={mainnetSplits ? "USDC" : "USDC and split payments"} />}
           {!mainnet && <a className="text-link" href="/docs#getting-started">How to get devnet test assets <FiArrowRight className="inline-icon action-icon" aria-hidden="true" /></a>}
         </aside>
       </div>
@@ -399,17 +401,21 @@ export function PaymentHistory() {
 
 function SplitReceipt({ receipt }: { receipt: PaymentIntent }) {
   const decimals = ASSETS[receipt.asset].decimals;
+  const mainnet = receipt.network === "mainnet-beta";
+  const verification = receipt.verification;
   return (
     <section className="notice split-receipt" role="status" aria-live="polite">
       <div className="split-receipt-heading">
         <FiCheckCircle aria-hidden="true" />
-        <div><strong>Verified payment receipt</strong><p>Every destination was paid in one finalized Devnet transaction.</p></div>
+        <div><strong>Verified payment receipt</strong><p>Every destination was paid in one finalized {mainnet ? "Mainnet Beta" : "Devnet"} transaction.</p></div>
       </div>
       <div className="receipt-details">
         <div><span>Payment ID</span><strong>{receipt.id}</strong></div>
         <div><span>Payer</span><strong>{receipt.payer}</strong></div>
         <div><span>Settled</span><strong>{receipt.paidAt ? new Date(receipt.paidAt).toISOString() : ""}</strong></div>
-        <div><span>Network</span><strong>Solana Devnet</strong></div>
+        <div><span>Network</span><strong>{mainnet ? "Solana Mainnet Beta" : "Solana Devnet"}</strong></div>
+        <div><span>Signature</span><strong>{receipt.transactionSignature}</strong></div>
+        <div><span>Verification</span><strong>{verification?.verified && verification.commitment === "finalized" ? "Finalized on-chain" : "Verified"}</strong></div>
       </div>
       <div className="split-allocation-list split-receipt-list">
         {receipt.recipients.map((recipient) => (
@@ -432,9 +438,11 @@ const DEMO_SPLIT_ROWS = [
   { label: "Ava Mitchell", wallet: "", bps: "5" },
 ];
 
-export function SplitCalculator() {
-  const [amount, setAmount] = useState("100");
-  const [asset, setAsset] = useState<Asset>("USDC");
+export function SplitCalculator({ network = "devnet" }: { network?: NetworkId } = {}) {
+  const mainnet = network === "mainnet-beta";
+  const settlementLabel = mainnet ? "Mainnet Beta" : "Devnet";
+  const [amount, setAmount] = useState(mainnet ? "0.01" : "100");
+  const [asset, setAsset] = useState<Asset>(mainnet ? "SOL" : "USDC");
   const [rows, setRows] = useState(DEMO_SPLIT_ROWS);
   const [step, setStep] = useState<"configure" | "review">("configure");
   const [wallet, setWallet] = useState<WalletSession | null>(null);
@@ -446,6 +454,8 @@ export function SplitCalculator() {
   try {
     recipients = validateSplitRecipients(rows.map((row) => ({ ...row, bps: percentToBps(row.bps) })));
     values = allocate(toBaseUnits(amount, ASSETS[asset].decimals), recipients.map((recipient) => recipient.bps));
+    if (mainnet && asset !== "SOL") throw new Error("Mainnet Beta split payments support SOL only.");
+    if (mainnet && toBaseUnits(amount, ASSETS.SOL.decimals) > 100000000n) throw new Error("Mainnet Beta split payments are limited to 0.1 SOL.");
   } catch (nextError) {
     error = errorText(nextError);
   }
@@ -467,6 +477,11 @@ export function SplitCalculator() {
       toast.error(error);
       return;
     }
+    if (recipients.some((recipient) => recipient.wallet === wallet.address)) {
+      toast.error("Payer and recipient must be different wallets.", { description: "Connect a different payer wallet before continuing." });
+      return;
+    }
+    try { wallet.assertActive(); } catch (nextError) { toast.error(errorText(nextError)); return; }
     setSettling(true);
     setSettlement(null);
     const notification = toast.loading("Authorizing split payment…");
@@ -474,7 +489,7 @@ export function SplitCalculator() {
       const payload = JSON.stringify({
         merchantWallet: wallet.address,
         title: "Split payment",
-        description: "Atomic Devnet split payment",
+        description: `Atomic ${settlementLabel} split payment`,
         asset,
         amount,
         recipients: recipients.map((recipient) => ({ label: recipient.label, wallet: recipient.wallet, bps: recipient.bps })),
@@ -483,11 +498,12 @@ export function SplitCalculator() {
         timestamp: now,
         origin: location.origin,
       });
-      const signature = await wallet.signMessage(creationMessage(payload));
+      const signature = await wallet.signMessage(creationMessage(payload, network));
       const payment = await api<PaymentIntent>("/api/payments", { payload, signature });
       toast.loading("Preparing atomic transaction…", { id: notification });
       const prepared = await api<{ transaction: string; attemptId: string; attemptToken: string }>(`/api/payments/${payment.id}/prepare`, { payer: wallet.address });
       toast.loading("Approve one transaction in your wallet…", { id: notification });
+      wallet.assertActive();
       const signed = await wallet.signTransaction(prepared.transaction);
       const submitted = await api<{ signature: string; status: string; message?: string }>(`/api/payments/${payment.id}/submissions`, { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: signed });
       setSettlement({ paymentId: payment.id, attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, ...submitted, relayMessage: submitted.message });
@@ -505,7 +521,7 @@ export function SplitCalculator() {
   const verifySplit = useCallback(async (quiet = false) => {
     if (!settlement) return;
     setSettling(true);
-    const notification = quiet ? undefined : toast.loading("Checking Devnet finalization…");
+    const notification = quiet ? undefined : toast.loading(`Checking ${settlementLabel} finalization…`);
     try {
       const result = await api<PaymentIntent | { status: string; signature?: string }>(`/api/payments/${settlement.paymentId}/verify`, { attemptId: settlement.attemptId, attemptToken: settlement.attemptToken });
       const receipt = result.status === "PAID" && "recipients" in result ? result : undefined;
@@ -529,7 +545,7 @@ export function SplitCalculator() {
   }, [settlement, settling, verifySplit]);
 
   return (
-    <AppShell title="One payment. Many destinations." subtitle="Set exact destinations, review the split, then sign one atomic Devnet transaction when settlement is enabled.">
+    <AppShell title="One payment. Many destinations." subtitle={`Set exact destinations, review the split, then sign one atomic ${settlementLabel} transaction when settlement is enabled.`}>
       <ol className="split-flow-steps" aria-label="Split payment flow">
         <li className={step === "configure" ? "is-current" : "is-complete"}><span>1</span><div><strong>Configure</strong><small>Amount, asset, wallets, allocation</small></div></li>
         <li className={step === "review" ? "is-current" : ""}><span>2</span><div><strong>Connect & review</strong><small>Confirm every destination</small></div></li>
@@ -547,7 +563,7 @@ export function SplitCalculator() {
                 <h2 id="split-editor-title">Split payment</h2>
               </div>
             </div>
-            <span className="badge split-preview-badge"><FiGitBranch aria-hidden="true" /> DEVNET</span>
+            <span className="badge split-preview-badge"><FiGitBranch aria-hidden="true" /> {mainnet ? "MAINNET BETA" : "DEVNET"}</span>
           </div>
 
           <div className="split-form-grid">
@@ -558,7 +574,7 @@ export function SplitCalculator() {
             <label className="split-field">
               <span className="split-field-label"><FiLayers aria-hidden="true" /> Asset</span>
               <select aria-label="Payment asset" value={asset} onChange={(event) => setAsset(event.target.value as Asset)}>
-                <option>USDC</option>
+                {!mainnet && <option>USDC</option>}
                 <option>SOL</option>
               </select>
             </label>
@@ -647,19 +663,19 @@ export function SplitCalculator() {
               <span className="split-panel-icon split-panel-icon-preview"><FiCheckCircle aria-hidden="true" /></span>
               <div><span className="split-kicker">FINAL CHECK</span><h2 id="split-review-title">Review your split</h2></div>
             </div>
-            <span className="badge split-preview-badge">DEVNET</span>
+            <span className="badge split-preview-badge">{mainnet ? "MAINNET BETA" : "DEVNET"}</span>
           </div>
           <div className="split-review-summary"><span>Total</span><strong>{amount} {asset}</strong><span>{recipients.length} recipients</span></div>
           <div className="split-allocation-list split-review-list">
             {recipients.map((recipient, index) => <div className={`split-allocation-item split-allocation-item-${index}`} key={recipient.wallet}><span className="split-allocation-label"><i aria-hidden="true" /><span><strong>{recipient.label}</strong><small>{recipient.wallet}</small></span></span><strong>{displayUnits(values[index], ASSETS[asset].decimals)} {asset}</strong></div>)}
           </div>
           <div className="split-review-wallet"><div><strong>Connect payer wallet</strong><p>The payer signs once. The signed transaction must include every displayed destination and amount.</p></div><WalletButton session={wallet} onChange={setWallet} /></div>
-          <div className="split-planned-note"><FiInfo aria-hidden="true" /><div><strong>Atomic Devnet settlement</strong><p>Your wallet first authorizes this payment intent, then signs one transaction containing every displayed destination. No funds move until that transaction is signed.</p></div></div>
+          <div className="split-planned-note"><FiInfo aria-hidden="true" /><div><strong>Atomic {settlementLabel} settlement</strong><p>Your wallet first authorizes this payment intent, then signs one transaction containing every displayed destination. No funds move until that transaction is signed.</p></div></div>
           {settlement && (
             settlement.receipt ? <SplitReceipt receipt={settlement.receipt} /> : (
               <div className={`notice${settlement.relayMessage || settlement.error ? " error" : ""}`} role="status" aria-live="polite">
                 <strong>{settlement.relayMessage || settlement.error ? "Split needs attention" : "Split transaction submitted"}</strong>
-                <p className="break"><a className="text-link" href={explorer(settlement.signature)} target="_blank" rel="noreferrer">{settlement.signature}</a></p>
+                <p className="break"><a className="text-link" href={explorer(settlement.signature, network)} target="_blank" rel="noreferrer">{settlement.signature}</a></p>
                 <p>Finalization status: {settlement.status}</p>
                 <div className="split-receipt-link">
                   <span>Receipt URL</span>
@@ -685,7 +701,7 @@ export function SplitCalculator() {
 
 export function PublicSplitReceipt({ id }: { id: string }) {
   const [receipt, setReceipt] = useState<PaymentIntent | null>(null);
-  const [message, setMessage] = useState("Loading finalized Devnet receipt…");
+  const [message, setMessage] = useState("Loading finalized receipt…");
 
   useEffect(() => {
     let active = true;
@@ -709,7 +725,7 @@ export function PublicSplitReceipt({ id }: { id: string }) {
   }, [id]);
 
   return (
-    <AppShell title="Verified split receipt" subtitle="Public, finalized Devnet settlement details.">
+    <AppShell title="Verified split receipt" subtitle={`Public, finalized ${receipt?.network === "mainnet-beta" ? "Mainnet Beta" : "Devnet"} settlement details.`}>
       {receipt ? <SplitReceipt receipt={receipt} /> : (
         <section className="notice" role="status" aria-live="polite">
           <strong>Receipt not available yet</strong>

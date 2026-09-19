@@ -14,6 +14,7 @@ services:
       AUNO_PUBLIC_ORIGIN: https://mainnet.auno.cash
       AUNO_COOLIFY_MAINNET_STAGING: "true"
       AUNO_MAINNET_ENABLED: "false"
+      AUNO_MAINNET_SPLITS_ENABLED: "false"
       AUNO_MAX_SOL_LAMPORTS: "100000000"
       AUNO_VERIFIER_BATCH_SIZE: "25"
       AUNO_VERIFIER_TOKEN: ${AUNO_VERIFIER_TOKEN:?Set AUNO_VERIFIER_TOKEN to a random server-only value}

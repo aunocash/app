@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- Full document navigation resets payment wallet state. */
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { IconType } from "react-icons";
 import {
   FiArrowDown,
@@ -40,6 +40,20 @@ function useMainnetSite(network?: SiteNetwork) {
   );
 }
 
+export function useMainnetSplitsCapability(mainnet: boolean) {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (!mainnet) { setEnabled(false); return () => { active = false; }; }
+    void fetch("/api/capabilities", { cache: "no-store" })
+      .then((response) => response.json() as Promise<{ mainnetSplitsEnabled?: boolean }>)
+      .then((capabilities) => { if (active) setEnabled(capabilities.mainnetSplitsEnabled === true); })
+      .catch(() => { if (active) setEnabled(false); });
+    return () => { active = false; };
+  }, [mainnet]);
+  return enabled;
+}
+
 type ProductFeature = {
   icon: IconType;
   title: string;
@@ -64,7 +78,8 @@ export function Brand() {
 export function Nav({ network }: { network?: SiteNetwork }) {
   const [open, setOpen] = useState(false);
   const mainnet = useMainnetSite(network);
-  return <header className="nav"><div className="nav-inner"><Brand /><div className="nav-actions"><button className="menu" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? <FiX aria-hidden="true" /> : <FiMenu aria-hidden="true" />}</button></div><nav className={open ? "open" : ""}><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Docs</a><a href="/roadmap">Roadmap</a><a className="social-link nav-social-link" href="https://x.com/aunocash" target="_blank" rel="noreferrer" aria-label="Follow AUNO on X"><FaXTwitter aria-hidden="true" /></a><a className="button small" href="/dashboard/create">{mainnet ? "Mainnet Beta" : "Try on Devnet"} <LaunchIcon /></a></nav></div></header>;
+  const mainnetSplits = useMainnetSplitsCapability(mainnet);
+  return <header className="nav"><div className="nav-inner"><Brand /><div className="nav-actions"><button className="menu" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? <FiX aria-hidden="true" /> : <FiMenu aria-hidden="true" />}</button></div><nav className={open ? "open" : ""}><a href="/#product">Product</a>{(!mainnet || mainnetSplits) && <a href="/split">Split Payment</a>}<a href="/developers">Developers</a><a href="/docs">Docs</a><a href="/roadmap">Roadmap</a><a className="social-link nav-social-link" href="https://x.com/aunocash" target="_blank" rel="noreferrer" aria-label="Follow AUNO on X"><FaXTwitter aria-hidden="true" /></a><a className="button small" href="/dashboard/create">{mainnet ? "Mainnet Beta" : "Try on Devnet"} <LaunchIcon /></a></nav></div></header>;
 }
 
 export function Footer({ network }: { network?: SiteNetwork }) {

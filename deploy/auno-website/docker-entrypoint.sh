@@ -63,6 +63,7 @@ umask 077
   fi
   if [ "$SOLANA_NETWORK" = "mainnet-beta" ]; then
     write_runtime_value AUNO_MAINNET_ENABLED "${AUNO_MAINNET_ENABLED:-false}"
+    write_runtime_value AUNO_MAINNET_SPLITS_ENABLED "${AUNO_MAINNET_SPLITS_ENABLED:-false}"
     write_runtime_value AUNO_MAX_SOL_LAMPORTS "${AUNO_MAX_SOL_LAMPORTS:-100000000}"
     write_runtime_value AUNO_VERIFIER_BATCH_SIZE "${AUNO_VERIFIER_BATCH_SIZE:-25}"
     write_runtime_value AUNO_VERIFIER_TOKEN "$AUNO_VERIFIER_TOKEN"

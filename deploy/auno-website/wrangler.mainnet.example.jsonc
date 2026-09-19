@@ -14,6 +14,7 @@
     "SOLANA_NETWORK": "mainnet-beta",
     "AUNO_PUBLIC_ORIGIN": "https://mainnet.auno.cash",
     "AUNO_MAINNET_ENABLED": "false",
+    "AUNO_MAINNET_SPLITS_ENABLED": "false",
     "AUNO_MAX_SOL_LAMPORTS": "100000000",
     "AUNO_VERIFIER_BATCH_SIZE": "25"
   },

@@ -23,6 +23,9 @@ assert.match(home, /title: "Split Payments", description: "Calculate precise all
 assert.match(paymentUi, /label: "Split Payment"/);
 assert.match(paymentUi, /function useBrowserNetwork\(\)/);
 assert.match(paymentUi, /useSyncExternalStore/);
+assert.match(paymentUi, /payment-ready-backdrop/);
+assert.match(paymentUi, /role="dialog"/);
+assert.match(paymentUi, /Payment link ready/);
 assert.doesNotMatch(paymentUi, /Split Calculator/);
 assert.match(paymentUi, /split-preview-badge[^>]*>.*?DEVNET/s);
 assert.doesNotMatch(paymentUi, /split-preview-badge[^>]*>.*?PREVIEW ONLY/s);

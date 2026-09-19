@@ -3855,3 +3855,111 @@ td,
     grid-column: 1 / -1;
   }
 }
+
+/* Centered confirmation after a merchant creates a payment link. */
+.payment-ready-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4, 6, 8, .78);
+  backdrop-filter: blur(7px);
+}
+
+.payment-ready-panel {
+  position: relative;
+  width: min(540px, 100%);
+  padding: 34px;
+  border: 1px solid #3d4249;
+  border-radius: 18px;
+  background: #121417;
+  color: #f5f5f3;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .52);
+}
+
+.payment-ready-panel .eyebrow {
+  margin-bottom: 18px;
+}
+
+.payment-ready-panel h2 {
+  margin-bottom: 14px;
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.payment-ready-panel > p {
+  margin-bottom: 26px;
+}
+
+.payment-ready-details {
+  margin: 0 0 18px;
+}
+
+.payment-ready-link {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 14px;
+  border: 1px solid #30343a;
+  border-radius: 10px;
+  background: #0d0f12;
+  color: #f5f5f3;
+  font-size: 12px;
+}
+
+.payment-ready-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.payment-ready-actions .button {
+  justify-content: center;
+  gap: 10px;
+}
+
+.payment-ready-close,
+.payment-ready-stay {
+  border: 0;
+  background: transparent;
+  color: #a5a8ad;
+}
+
+.payment-ready-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid #30343a;
+  border-radius: 50%;
+}
+
+.payment-ready-close:hover,
+.payment-ready-stay:hover {
+  color: #f5f5f3;
+}
+
+.payment-ready-stay {
+  display: block;
+  margin: 18px auto 0;
+  font-size: 14px;
+}
+
+@media (max-width: 700px) {
+  .payment-ready-backdrop {
+    align-items: end;
+    padding: 16px;
+  }
+
+  .payment-ready-panel {
+    padding: 28px 22px 22px;
+  }
+
+  .payment-ready-actions {
+    grid-template-columns: 1fr;
+  }
+}

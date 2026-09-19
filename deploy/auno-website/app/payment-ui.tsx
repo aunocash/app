@@ -3,7 +3,7 @@
 import { Transaction } from "@solana/web3.js";
 import { WalletIcon } from "@web3icons/react/dynamic";
 import { Wallet } from "lucide-react";
-import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiCopy, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers } from "react-icons/fi";
+import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiCopy, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers, FiX } from "react-icons/fi";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -285,7 +285,26 @@ export function CreatePayment() {
             <button className="button wide" disabled={busy}>{busy ? "Approve the message in your wallet…" : <>Create Payment Link <FiArrowUpRight className="button-icon" aria-hidden="true" /></>}</button>
             <p className="detail-note">Creating a link requests a wallet message signature. It does not transfer funds.</p>
           </form>
-          {created && <div className="notice"><strong>Share your payment link</strong><p className="break">{url}</p><div className="actions"><button className="button small" onClick={async () => { try { await navigator.clipboard.writeText(url); toast.success("Payment link copied."); } catch { toast.error("Copy failed. Select and copy the link above."); } }}>Copy Link</button><a className="text-link" href={`/pay/${created.id}`}>Open Checkout <FiArrowRight className="inline-icon action-icon" aria-hidden="true" /></a></div></div>}
+          {created && (
+            <div className="payment-ready-backdrop">
+              <section className="payment-ready-panel" role="dialog" aria-modal="true" aria-labelledby="payment-ready-title">
+                <button className="payment-ready-close" type="button" aria-label="Close payment link panel" onClick={() => setCreated(null)}><FiX aria-hidden="true" /></button>
+                <div className="eyebrow">PAYMENT LINK CREATED <span className="badge">{created.asset}</span></div>
+                <h2 id="payment-ready-title">Payment link ready.</h2>
+                <p>Keep editing this request or share the link when you are ready.</p>
+                <div className="receipt-details payment-ready-details">
+                  <div><span>Amount</span><strong>{created.amount} {created.asset}</strong></div>
+                  <div><span>Recipient</span><strong>{created.recipients[0]?.address}</strong></div>
+                </div>
+                <code className="payment-ready-link">{url}</code>
+                <div className="payment-ready-actions">
+                  <button className="button" type="button" onClick={async () => { try { await navigator.clipboard.writeText(url); toast.success("Payment link copied."); } catch { toast.error("Copy failed. Select and copy the link above."); } }}>Copy Link <FiCopy className="inline-icon action-icon" aria-hidden="true" /></button>
+                  <a className="button light" href={`/pay/${created.id}`}>Open Checkout <FiArrowRight className="inline-icon action-icon" aria-hidden="true" /></a>
+                </div>
+                <button className="payment-ready-stay" type="button" onClick={() => setCreated(null)}>Keep editing</button>
+              </section>
+            </div>
+          )}
         </div>
         <aside>
           <div className="panel"><div className="eyebrow">CHECKOUT PREVIEW</div><h2>{title || "Your payment title"}</h2><p>{description || "Payment description appears here."}</p><div className="amount">{amount || "0.00"}<span>{asset}</span></div><div className="receipt-details"><div><span>Recipient</span><strong>{recipient || "Not selected"}</strong></div><div><span>Network</span><strong>{NETWORKS[network].label}</strong></div><div><span>Settlement</span><strong>Direct to recipient</strong></div></div></div>

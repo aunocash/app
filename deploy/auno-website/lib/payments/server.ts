@@ -3,11 +3,11 @@ import { ASSOCIATED_TOKEN_PROGRAM_ID, createAssociatedTokenAccountIdempotentInst
 import { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
-import { ASSETS, NETWORKS, MEMO_PROGRAM, allocate, creationMessage, displayUnits, explorer, historyMessage, toBaseUnits, validateRecipients, type Asset, type NetworkId, type PaymentIntent, type Recipient, type SplitRecipient } from './model';
+import { ASSETS, NETWORKS, MEMO_PROGRAM, allocate, creationMessage, displayUnits, explorer, historyMessage, toBaseUnits, usdcMint, validateRecipients, type Asset, type NetworkId, type PaymentIntent, type Recipient, type SplitRecipient } from './model';
 import { paymentPolicy } from './policy';
 
 export class PaymentError extends Error { constructor(message: string, public status = 400) { super(message); } }
-type Runtime = Record<string, unknown> & { DB?: D1Database; SOLANA_RPC_URL?: string; SOLANA_NETWORK?: string; AUNO_PUBLIC_ORIGIN?: string; AUNO_TRUSTED_CLIENT_HEADER?: string; AUNO_MAINNET_ENABLED?: string; AUNO_MAINNET_SPLITS_ENABLED?: string; AUNO_DEVNET_SPLITS_ENABLED?: string; AUNO_MAX_SOL_LAMPORTS?: string; AUNO_VERIFIER_BATCH_SIZE?: string; AUNO_VERIFIER_TOKEN?: string };
+type Runtime = Record<string, unknown> & { DB?: D1Database; SOLANA_RPC_URL?: string; SOLANA_NETWORK?: string; AUNO_PUBLIC_ORIGIN?: string; AUNO_TRUSTED_CLIENT_HEADER?: string; AUNO_MAINNET_ENABLED?: string; AUNO_MAINNET_SPLITS_ENABLED?: string; AUNO_MAINNET_USDC_ENABLED?: string; AUNO_DEVNET_SPLITS_ENABLED?: string; AUNO_MAX_SOL_LAMPORTS?: string; AUNO_MAX_USDC_BASE_UNITS?: string; AUNO_VERIFIER_BATCH_SIZE?: string; AUNO_VERIFIER_TOKEN?: string };
 type Attempt = { id: string; payment_id: string; payer: string; message_hash: string; attempt_token_hash: string; last_valid_block_height: number; signature: string | null; status: string };
 const CANONICAL_BLOCKHASH = '11111111111111111111111111111111';
 const COMPUTE_BUDGET_PROGRAM = 'ComputeBudget111111111111111111111111111111';
@@ -41,19 +41,28 @@ function configuredOrigin() {
 }
 export function mainnetEnabled() { return runtime().AUNO_MAINNET_ENABLED === 'true'; }
 export function mainnetSplitsEnabled() { return mainnetEnabled() && runtime().AUNO_MAINNET_SPLITS_ENABLED === 'true'; }
+export function mainnetUsdcEnabled() { return runtime().AUNO_MAINNET_USDC_ENABLED !== 'false'; }
 function devnetSplitsEnabled() { const token = runtime().AUNO_VERIFIER_TOKEN; return runtime().AUNO_DEVNET_SPLITS_ENABLED === 'true' && typeof token === 'string' && token.length >= 32; }
 export function publicCapabilities() { const network = paymentNetwork(); return { network, mainnetEnabled: network === 'mainnet-beta' && mainnetEnabled(), mainnetSplitsEnabled: network === 'mainnet-beta' && mainnetSplitsEnabled(), devnetSplitsEnabled: network === 'devnet' && devnetSplitsEnabled() }; }
 function isSplitPayment(payment: Pick<PaymentIntent, 'recipients'>) { return payment.recipients.length > 1; }
-function assertSettlementEnabled(payment?: Pick<PaymentIntent, 'network' | 'recipients'>) {
+function assertSettlementEnabled(payment?: Pick<PaymentIntent, 'network' | 'asset' | 'recipients'>) {
   if (paymentNetwork() === 'mainnet-beta' && !mainnetEnabled()) throw new PaymentError('Mainnet Beta settlement is not enabled.', 503);
   if (payment?.network === 'devnet' && isSplitPayment(payment) && !devnetSplitsEnabled()) throw new PaymentError('Devnet split settlement is not enabled yet.', 503);
   if (payment?.network === 'mainnet-beta' && isSplitPayment(payment) && !mainnetSplitsEnabled()) throw new PaymentError('Mainnet split settlement is not enabled yet.', 503);
+  if (payment?.network === 'mainnet-beta' && payment.asset === 'USDC' && !mainnetUsdcEnabled()) throw new PaymentError('Mainnet Beta USDC settlement is not enabled.', 503);
 }
 function mainnetMaxSolLamports() {
   const configured = runtime().AUNO_MAX_SOL_LAMPORTS || '100000000';
   if (!/^\d+$/.test(configured)) throw new PaymentError('Mainnet SOL limit deployment setting is invalid.', 503);
   const value = BigInt(configured);
   if (value <= 0n || value > 100_000_000n) throw new PaymentError('Mainnet SOL limit deployment setting exceeds the beta maximum.', 503);
+  return value;
+}
+function mainnetMaxUsdcBaseUnits() {
+  const configured = runtime().AUNO_MAX_USDC_BASE_UNITS || '100000000';
+  if (!/^\d+$/.test(configured)) throw new PaymentError('Mainnet USDC limit deployment setting is invalid.', 503);
+  const value = BigInt(configured);
+  if (value <= 0n || value > 1_000_000_000n) throw new PaymentError('Mainnet USDC limit deployment setting exceeds the beta maximum.', 503);
   return value;
 }
 export function connection() {
@@ -126,28 +135,6 @@ function paymentMessage(transaction: Transaction) {
   return new TextEncoder().encode(JSON.stringify(message));
 }
 async function preparedMessageHash(transaction: Transaction) { return `v4:${await sha256(paymentMessage(transaction))}`; }
-const JITO_TIP_ACCOUNTS = new Set([
-  '96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5',
-  'HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe',
-  'Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY',
-  'ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49',
-  'DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh',
-  'ADuUkR4vqLUMWXxW9gh6D6L8pivKeVBBWhHW7YPBUAQB',
-  'DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL',
-  '3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT',
-]);
-function isSafeWalletExtra(instruction: TransactionInstruction, payer: string): boolean {
-  const programId = instruction.programId.toBase58();
-  if (programId === MEMO_PROGRAM) return true;
-  if (programId !== SystemProgram.programId.toBase58()) return false;
-  const data = Uint8Array.from(instruction.data);
-  if (data.length !== 12) return false;
-  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-  if (view.getUint32(0, true) !== 2) return false;
-  if (instruction.keys.length < 2) return false;
-  if (instruction.keys[0].pubkey.toBase58() !== payer) return false;
-  return JITO_TIP_ACCOUNTS.has(instruction.keys[1].pubkey.toBase58());
-}
 async function matchesPreparedMessage(payment: PaymentIntent, attempt: Attempt, transaction: Transaction) {
   if (transaction.feePayer?.toBase58() !== attempt.payer) return false;
   const expected = await buildTransaction(payment, attempt.payer, attempt.id, CANONICAL_BLOCKHASH);
@@ -162,7 +149,7 @@ async function matchesPreparedMessage(payment: PaymentIntent, attempt: Attempt, 
       data: bs58.encode(instruction.data),
     });
     if (expectedSigs.has(signature)) { actualSigs.add(signature); continue; }
-    if (!isSafeWalletExtra(instruction, attempt.payer)) return false;
+    return false;
   }
   void recipientAddresses;
   for (const signature of expectedSigs) {
@@ -232,6 +219,14 @@ function decodeSignedPaymentTransaction(encoded: string): SignedPaymentTransacti
   } catch (error) {
     if (error instanceof PaymentError) throw error;
     throw new PaymentError('Wallet returned an invalid signed transaction.', 422);
+  }
+}
+function walletBroadcastSignature(value: unknown) {
+  try {
+    if (typeof value !== 'string' || value.length > 128 || bs58.decode(value).length !== 64) throw new Error();
+    return value;
+  } catch {
+    throw new PaymentError('Wallet returned an invalid transaction signature.', 422);
   }
 }
 function attemptToken() {
@@ -324,16 +319,19 @@ export async function createPayment(req: Request) {
   if (typeof input.reference !== 'string' || input.reference.length > limits.maxReferenceLength) throw new PaymentError('Reference exceeds the allowed length.');
   if (input.asset !== 'SOL' && input.asset !== 'USDC') throw new PaymentError('Choose SOL or USDC.');
   const asset = input.asset as Asset;
-  if (!NETWORKS[network].supportsUsdc && asset !== 'SOL') throw new PaymentError('Mainnet Beta currently supports SOL payment links only.', 422);
+  if (network === 'mainnet-beta' && asset === 'USDC' && !mainnetUsdcEnabled()) throw new PaymentError('Mainnet Beta USDC settlement is not enabled.', 503);
   let amount: bigint;
   try { amount = toBaseUnits(String(input.amount), ASSETS[asset].decimals); } catch (error) { throw new PaymentError(error instanceof Error ? error.message : 'Invalid payment amount.'); }
-  if (network === 'mainnet-beta' && amount > mainnetMaxSolLamports()) throw new PaymentError('Mainnet Beta payment links are limited to 0.1 SOL.', 422);
+  if (network === 'mainnet-beta') {
+    if (asset === 'SOL' && amount > mainnetMaxSolLamports()) throw new PaymentError('Mainnet Beta payment links are limited to 0.1 SOL.', 422);
+    if (asset === 'USDC' && amount > mainnetMaxUsdcBaseUnits()) throw new PaymentError('Mainnet Beta payment links are limited to 100 USDC.', 422);
+  }
   let recipients: Recipient[];
   try { recipients = recipientsFromInput(input, amount); } catch (error) {
     if (Array.isArray(input.recipients)) logSplitValidationFailure(network, 'invalid_recipients');
     throw error;
   }
-  assertSettlementEnabled({ network, recipients });
+  assertSettlementEnabled({ network, asset, recipients });
   const now = Date.now();
   if (!Number.isSafeInteger(input.expiresAt) || Number(input.expiresAt) < now + limits.minExpiryMs || Number(input.expiresAt) > now + limits.maxExpiryMs) throw new PaymentError('Expiration is outside the permitted range.');
   await enforceRateLimit('create:' + merchant, limits.creationPerHour, 3_600_000);
@@ -366,7 +364,7 @@ async function buildTransaction(payment: PaymentIntent, payer: string, attemptId
   if (payment.asset === 'SOL') {
     for (const recipient of payment.recipients) transaction.add(SystemProgram.transfer({ fromPubkey: from, toPubkey: new PublicKey(recipient.address), lamports: BigInt(recipient.amountBaseUnits) }));
   } else {
-    const mint = new PublicKey(ASSETS.USDC.mint);
+    const mint = new PublicKey(usdcMint(payment.network));
     for (const recipient of payment.recipients) {
       const owner = new PublicKey(recipient.address);
       const destination = await getAssociatedTokenAddress(mint, owner);
@@ -423,16 +421,30 @@ export async function preparePayment(req: Request, id: string) {
 export async function submitPayment(req: Request, id: string) {
   sameOrigin(req);
   assertSettlementEnabled();
-  const body = await jsonBody(req);
-  if (typeof body.transaction !== 'string' || body.transaction.length > 8_000) throw new PaymentError('Invalid signed transaction.');
+const body = await jsonBody(req);
+  const hasSignedTransaction = typeof body.transaction === 'string' && body.transaction.length <= 8_000;
+  const hasWalletSignature = typeof body.signature === 'string';
+  if (hasSignedTransaction === hasWalletSignature) throw new PaymentError('Submit either a signed transaction or a wallet-broadcast signature.');
   const attempt = await getAttempt(id, body.attemptId, body.attemptToken);
   const payment = await getPayment(id);
   assertSettlementEnabled(payment);
   if (payment.status !== 'ACTIVE') throw new PaymentError('This payment is no longer available.', 409);
   if (attempt.status !== 'PREPARED') throw new PaymentError('This attempt is no longer ready for submission.', 409);
+if (hasWalletSignature) {
+    const signature = walletBroadcastSignature(body.signature);
+    const c = connection();
+    await assertNetwork(c);
+    // The wallet has already broadcast this transaction. Do not discard an on-chain payment
+    // based on the original blockhash height; final verification remains authoritative.
+    const claim = await db().prepare("UPDATE payment_attempts SET signature=?,status='SUBMITTED',updated_at=? WHERE id=? AND status='PREPARED'").bind(signature, Date.now(), attempt.id).run();
+    if (!claim.meta.changes) throw new PaymentError('This attempt has already been submitted.', 409);
+    logEvent('payment_submitted', { paymentId: id, attemptId: attempt.id, signature, recipientCount: payment.recipients.length, split: isSplitPayment(payment), relay: 'wallet' });
+    logSplitEvent(payment.network, 'submitted', { paymentId: id, attemptId: attempt.id, signature, recipientCount: payment.recipients.length, split: isSplitPayment(payment), relay: 'wallet' });
+    return { attemptId: attempt.id, signature, status: 'SUBMITTED' };
+  }
   let signed: SignedPaymentTransaction;
   try {
-    signed = decodeSignedPaymentTransaction(body.transaction);
+    signed = decodeSignedPaymentTransaction(body.transaction as string);
     if (!await matchesPreparedMessage(payment, attempt, signed.transaction)) throw new Error();
     validateComputeBudget(signed.transaction);
   } catch (error) {
@@ -508,10 +520,12 @@ async function checkInstructions(payment: PaymentIntent, attempt: Attempt, parse
   const signers = parsed.transaction.message.accountKeys.filter((key) => key.signer).map((key) => key.pubkey.toBase58());
   if (signers.length !== 1 || signers[0] !== payer || parsed.transaction.message.accountKeys[0]?.pubkey.toBase58() !== payer) throw new PaymentError('Transaction payer or signer set is invalid.');
   const memo = 'auno:' + payment.id + ':' + attempt.id;
-  if (instructions.filter((instruction) => instruction.programId.toBase58() === MEMO_PROGRAM && instruction.parsed === memo).length < 1) throw new PaymentError('Payment reference is missing.');
+  const memos = instructions.filter((instruction) => instruction.programId.toBase58() === MEMO_PROGRAM);
+  if (memos.length !== 1 || memos[0].parsed !== memo) throw new PaymentError('Payment reference is missing or invalid.');
   const transfers = instructions.filter((instruction) => instruction.programId.toBase58() === (payment.asset === 'SOL' ? SystemProgram.programId.toBase58() : TOKEN_PROGRAM_ID.toBase58()));
   const associatedCreations = instructions.filter((instruction) => instruction.programId.toBase58() === ASSOCIATED_TOKEN_PROGRAM_ID.toBase58());
-  if (transfers.length < payment.recipients.length) throw new PaymentError('Expected transfers are missing.');
+  if (transfers.length !== payment.recipients.length) throw new PaymentError('Transaction transfer count is invalid.');
+  if (payment.asset === 'USDC' && associatedCreations.length !== payment.recipients.length) throw new PaymentError('Transaction token-account instruction count is invalid.');
   if (payment.asset === 'SOL') {
     const recipientAddresses = new Set(payment.recipients.map((recipient) => recipient.address));
     const recipientAmounts = new Map(payment.recipients.map((recipient) => [recipient.address, recipient.amountBaseUnits]));
@@ -523,30 +537,31 @@ async function checkInstructions(payment: PaymentIntent, attempt: Attempt, parse
       const destination = String(info.destination);
       if (recipientAddresses.has(destination)) {
         if (String(info.lamports) !== recipientAmounts.get(destination)) throw new PaymentError('Recipient transfer amount is incorrect.');
-      } else if (!JITO_TIP_ACCOUNTS.has(destination)) {
+      } else {
         throw new PaymentError('Transaction includes an unexpected transfer instruction.');
       }
     }
   } else if (transfers.length !== payment.recipients.length) throw new PaymentError('Expected transfers are missing.');
+  const mint = payment.asset === 'USDC' ? usdcMint(payment.network) : null;
   for (const recipient of payment.recipients) {
-    const destination = payment.asset === 'USDC' ? await getAssociatedTokenAddress(new PublicKey(ASSETS.USDC.mint), new PublicKey(recipient.address)) : null;
-    const source = payment.asset === 'USDC' ? await getAssociatedTokenAddress(new PublicKey(ASSETS.USDC.mint), new PublicKey(payer)) : null;
+    const destination = mint ? await getAssociatedTokenAddress(new PublicKey(mint), new PublicKey(recipient.address)) : null;
+    const source = mint ? await getAssociatedTokenAddress(new PublicKey(mint), new PublicKey(payer)) : null;
     const found = transfers.filter((instruction) => {
       const parsedInstruction = instruction.parsed as { type?: string; info?: Record<string, unknown> };
       const info = parsedInstruction?.info || {};
       if (payment.asset === 'SOL') return parsedInstruction.type === 'transfer' && info.source === payer && info.destination === recipient.address && String(info.lamports) === recipient.amountBaseUnits;
-      return parsedInstruction.type === 'transferChecked' && info.source === source!.toBase58() && info.destination === destination!.toBase58() && info.authority === payer && info.mint === ASSETS.USDC.mint && String((info.tokenAmount as { amount?: string } | undefined)?.amount) === recipient.amountBaseUnits && Number((info.tokenAmount as { decimals?: number } | undefined)?.decimals) === ASSETS.USDC.decimals;
+      return parsedInstruction.type === 'transferChecked' && info.source === source!.toBase58() && info.destination === destination!.toBase58() && info.authority === payer && info.mint === mint && String((info.tokenAmount as { amount?: string } | undefined)?.amount) === recipient.amountBaseUnits && Number((info.tokenAmount as { decimals?: number } | undefined)?.decimals) === ASSETS.USDC.decimals;
     });
     if (found.length !== 1) throw new PaymentError('Each recipient must receive exactly one intended transfer.');
     if (payment.asset === 'USDC') {
       const creation = associatedCreations.filter((instruction) => {
         const parsedInstruction = instruction.parsed as { type?: string; info?: Record<string, unknown> };
         const info = parsedInstruction?.info || {};
-        return parsedInstruction.type === 'createIdempotent' && info.source === payer && info.account === destination!.toBase58() && info.wallet === recipient.address && info.mint === ASSETS.USDC.mint;
+        return parsedInstruction.type === 'createIdempotent' && info.source === payer && info.account === destination!.toBase58() && info.wallet === recipient.address && info.mint === mint;
       });
       if (creation.length !== 1) throw new PaymentError('Each USDC recipient requires the expected token-account instruction.');
       const accountIndex = parsed.transaction.message.accountKeys.findIndex((key) => key.pubkey.toBase58() === destination!.toBase58());
-      const balance = parsed.meta.postTokenBalances?.filter((entry) => entry.accountIndex === accountIndex && entry.owner === recipient.address && entry.mint === ASSETS.USDC.mint) || [];
+      const balance = parsed.meta.postTokenBalances?.filter((entry) => entry.accountIndex === accountIndex && entry.owner === recipient.address && entry.mint === mint) || [];
       if (accountIndex < 0 || balance.length !== 1) throw new PaymentError('USDC recipient token-account ownership could not be verified.');
     }
   }
@@ -582,21 +597,13 @@ async function verifyAttempt(payment: PaymentIntent, attempt: Attempt) {
     logSplitEvent(payment.network, 'rejected', { paymentId: payment.id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment), reason: 'outside_payment_window' });
     throw new PaymentError('Transaction failed or falls outside the payment window.');
   }
-  const raw = await rpcWithRetry(() => c.getTransaction(attempt.signature!, { commitment: 'finalized', maxSupportedTransactionVersion: 0 }));
-  let finalized: Transaction | null = null;
-  try { if (raw?.transaction) finalized = transactionFromMessage(raw.transaction.message); } catch { /* rejected below */ }
-  if (!finalized || !await matchesPreparedMessage(payment, attempt, finalized)) {
-    await db().prepare("UPDATE payment_attempts SET status='REJECTED',updated_at=? WHERE id=? AND status IN ('SUBMITTED','CONFIRMING')").bind(Date.now(), attempt.id).run();
-    logEvent('payment_rejected', { paymentId: payment.id, attemptId: attempt.id });
-    logSplitEvent(payment.network, 'rejected', { paymentId: payment.id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment), reason: 'prepared_message_mismatch' });
-    throw new PaymentError('Finalized transaction differs from the prepared payment.');
-  }
   try {
     await checkInstructions(payment, attempt, parsed as unknown as Parameters<typeof checkInstructions>[2]);
   } catch (error) {
     await db().prepare("UPDATE payment_attempts SET status='REJECTED',updated_at=? WHERE id=? AND status IN ('SUBMITTED','CONFIRMING')").bind(Date.now(), attempt.id).run();
-    logEvent('payment_rejected', { paymentId: payment.id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment) });
-    logSplitEvent(payment.network, 'rejected', { paymentId: payment.id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment), reason: error instanceof PaymentError ? error.message : 'instruction_validation' });
+    const reason = error instanceof PaymentError ? error.message : 'instruction_validation';
+    logEvent('payment_verification_rejected', { paymentId: payment.id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment), reason });
+    logSplitEvent(payment.network, 'rejected', { paymentId: payment.id, attemptId: attempt.id, recipientCount: payment.recipients.length, split: isSplitPayment(payment), reason });
     throw error;
   }
   const paid = await db().prepare("UPDATE payments SET status='PAID',transaction_signature=?,payer=?,paid_at=?,updated_at=? WHERE id=? AND status='ACTIVE'").bind(attempt.signature, attempt.payer, parsed.blockTime * 1_000, Date.now(), payment.id).run();

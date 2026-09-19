@@ -22,7 +22,8 @@ type ConnectFeature = {
   connect: () => Promise<{ accounts: readonly WalletAccount[] }>;
 };
 
-const requiredFeatures = ["solana:signMessage", "solana:signTransaction"];
+const requiredFeatures = ["solana:signMessage"];
+const transactionSigningFeatures = ["solana:signAndSendTransaction", "solana:signTransaction"];
 
 export type WalletSession = {
   address: string;
@@ -30,7 +31,8 @@ export type WalletSession = {
   chain: SolanaChain;
   assertActive: () => void;
   signMessage: (text: string) => Promise<string>;
-  signTransaction: (base64: string) => Promise<string>;
+  signAndSendTransaction?: (base64: string) => Promise<string>;
+  signTransaction?: (base64: string) => Promise<string>;
   disconnect: () => Promise<void>;
 };
 
@@ -75,11 +77,15 @@ export function clearWalletSession() {
 }
 
 function supportsAccount(account: WalletAccount, chain: SolanaChain) {
-  return account.chains.includes(chain) && requiredFeatures.every((feature) => account.features.includes(feature));
+  return account.chains.includes(chain)
+    && requiredFeatures.every((feature) => account.features.includes(feature))
+    && transactionSigningFeatures.some((feature) => account.features.includes(feature));
 }
 
 function supportsWallet(wallet: StandardWallet, chain: SolanaChain) {
-  return wallet.chains.includes(chain) && requiredFeatures.every((feature) => Boolean(wallet.features[feature]));
+  return wallet.chains.includes(chain)
+    && requiredFeatures.every((feature) => Boolean(wallet.features[feature]))
+    && transactionSigningFeatures.some((feature) => Boolean(wallet.features[feature]));
 }
 
 function walletsFor(chain: SolanaChain) {
@@ -109,12 +115,19 @@ function createSession(wallet: StandardWallet, account: WalletAccount, chain: So
       const [output] = await feature.signMessage({ account: currentAccount, message: new TextEncoder().encode(text) });
       return bs58.encode(output.signature);
     },
-    signTransaction: async (base64) => {
+    signAndSendTransaction: wallet.features["solana:signAndSendTransaction"] ? async (base64) => {
+      const { wallet: currentWallet, account: currentAccount } = activeContext();
+      const feature = currentWallet.features["solana:signAndSendTransaction"] as { signAndSendTransaction: (input: unknown) => Promise<{ signature: Uint8Array }[]> };
+      const [output] = await feature.signAndSendTransaction({ account: currentAccount, chain, transaction: Uint8Array.from(atob(base64), (character) => character.charCodeAt(0)) });
+      if (!output?.signature) throw new Error("Wallet did not return a transaction signature.");
+      return bs58.encode(output.signature);
+    } : undefined,
+    signTransaction: wallet.features["solana:signTransaction"] ? async (base64) => {
       const { wallet: currentWallet, account: currentAccount } = activeContext();
       const feature = currentWallet.features["solana:signTransaction"] as { signTransaction: (input: unknown) => Promise<{ signedTransaction: Uint8Array }[]> };
       const [output] = await feature.signTransaction({ account: currentAccount, chain, transaction: Uint8Array.from(atob(base64), (character) => character.charCodeAt(0)) });
       return btoa(String.fromCharCode(...output.signedTransaction));
-    },
+    } : undefined,
     disconnect: async () => {
       const currentWallet = walletFor(wallet.name, chain);
       const feature = currentWallet?.features["standard:disconnect"] as { disconnect: () => Promise<void> } | undefined;
@@ -132,7 +145,7 @@ export async function connectWallet(name: string, chain: SolanaChain = "solana:d
   if (!wallet) throw new Error("Install a Wallet Standard compatible Solana wallet, then reload.");
   const result = await (wallet.features["standard:connect"] as ConnectFeature).connect();
   const account = result.accounts.find((candidate) => supportsAccount(candidate, chain));
-  if (!account) throw new Error(`This wallet account does not support ${chain} message and transaction signing.`);
+  if (!account) throw new Error(`This wallet account does not support ${chain} message signing and transaction approval.`);
   return createSession(wallet, account, chain);
 }
 

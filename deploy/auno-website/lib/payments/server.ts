@@ -105,34 +105,21 @@ async function sha256(value: Uint8Array | string) {
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes as unknown as BufferSource));
   return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
-function legacyPaymentMessage(transaction: Transaction) {
-  const normalized = new Transaction();
-  normalized.feePayer = transaction.feePayer;
-  normalized.recentBlockhash = CANONICAL_BLOCKHASH;
-  for (const instruction of transaction.instructions) {
-    if (instruction.programId.toBase58() !== COMPUTE_BUDGET_PROGRAM) normalized.add(instruction);
-  }
-  return normalized.serializeMessage();
-}
 function paymentMessage(transaction: Transaction) {
-  const compiled = transaction.compileMessage();
-  const privileges = new Map(compiled.accountKeys.map((key, index) => [key.toBase58(), { signer: compiled.isAccountSigner(index), writable: compiled.isAccountWritable(index) }]));
   const message = {
     payer: transaction.feePayer?.toBase58() || '',
     instructions: transaction.instructions.filter((instruction) => instruction.programId.toBase58() !== COMPUTE_BUDGET_PROGRAM).map((instruction) => ({
       programId: instruction.programId.toBase58(),
-      keys: instruction.keys.map((key) => {
-        const privilege = privileges.get(key.pubkey.toBase58());
-        return { pubkey: key.pubkey.toBase58(), signer: privilege?.signer ?? key.isSigner, writable: privilege?.writable ?? key.isWritable };
-      }),
+      keys: instruction.keys.map((key) => key.pubkey.toBase58()),
       data: bs58.encode(instruction.data),
     })),
   };
   return new TextEncoder().encode(JSON.stringify(message));
 }
-async function preparedMessageHash(transaction: Transaction) { return `v2:${await sha256(paymentMessage(transaction))}`; }
-async function matchesPreparedMessage(transaction: Transaction, expected: string) {
-  return expected.startsWith('v2:') ? expected === await preparedMessageHash(transaction) : expected === await sha256(legacyPaymentMessage(transaction));
+async function preparedMessageHash(transaction: Transaction) { return `v3:${await sha256(paymentMessage(transaction))}`; }
+async function matchesPreparedMessage(payment: PaymentIntent, attempt: Attempt, transaction: Transaction) {
+  const expected = await buildTransaction(payment, attempt.payer, attempt.id, CANONICAL_BLOCKHASH);
+  return await sha256(paymentMessage(transaction)) === await sha256(paymentMessage(expected));
 }
 function littleEndian(data: Uint8Array) {
   let value = 0n;
@@ -388,7 +375,7 @@ export async function submitPayment(req: Request, id: string) {
   let signed: SignedPaymentTransaction;
   try {
     signed = decodeSignedPaymentTransaction(body.transaction);
-    if (!await matchesPreparedMessage(signed.transaction, attempt.message_hash)) throw new Error();
+    if (!await matchesPreparedMessage(payment, attempt, signed.transaction)) throw new Error();
     validateComputeBudget(signed.transaction);
   } catch (error) {
     logEvent('payment_submission_rejected', { paymentId: id, attemptId: attempt.id, reason: error instanceof PaymentError ? 'wallet_validation' : 'prepared_message_mismatch' });
@@ -479,7 +466,7 @@ async function verifyAttempt(payment: PaymentIntent, attempt: Attempt) {
   const raw = await c.getTransaction(attempt.signature, { commitment: 'finalized', maxSupportedTransactionVersion: 0 });
   let finalized: Transaction | null = null;
   try { if (raw?.transaction) finalized = transactionFromMessage(raw.transaction.message); } catch { /* rejected below */ }
-  if (!finalized || !await matchesPreparedMessage(finalized, attempt.message_hash)) {
+  if (!finalized || !await matchesPreparedMessage(payment, attempt, finalized)) {
     await db().prepare("UPDATE payment_attempts SET status='REJECTED',updated_at=? WHERE id=? AND status IN ('SUBMITTED','CONFIRMING')").bind(Date.now(), attempt.id).run();
     logEvent('payment_rejected', { paymentId: payment.id, attemptId: attempt.id });
     throw new PaymentError('Finalized transaction differs from the prepared payment.');

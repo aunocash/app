@@ -126,13 +126,49 @@ function paymentMessage(transaction: Transaction) {
   return new TextEncoder().encode(JSON.stringify(message));
 }
 async function preparedMessageHash(transaction: Transaction) { return `v4:${await sha256(paymentMessage(transaction))}`; }
+const JITO_TIP_ACCOUNTS = new Set([
+  '96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5',
+  'HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe',
+  'Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY',
+  'ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49',
+  'DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh',
+  'ADuUkR4vqLUMWXxW9gh6D6L8pivKeVBBWhHW7YPBUAQB',
+  'DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL',
+  '3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT',
+]);
+function isSafeWalletExtra(instruction: TransactionInstruction, payer: string): boolean {
+  const programId = instruction.programId.toBase58();
+  if (programId === MEMO_PROGRAM) return true;
+  if (programId !== SystemProgram.programId.toBase58()) return false;
+  const data = Uint8Array.from(instruction.data);
+  if (data.length !== 12) return false;
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  if (view.getUint32(0, true) !== 2) return false;
+  if (instruction.keys.length < 2) return false;
+  if (instruction.keys[0].pubkey.toBase58() !== payer) return false;
+  return JITO_TIP_ACCOUNTS.has(instruction.keys[1].pubkey.toBase58());
+}
 async function matchesPreparedMessage(payment: PaymentIntent, attempt: Attempt, transaction: Transaction) {
   if (transaction.feePayer?.toBase58() !== attempt.payer) return false;
   const expected = await buildTransaction(payment, attempt.payer, attempt.id, CANONICAL_BLOCKHASH);
-  const expectedSigs = instructionSignatures(expected);
-  const actualSigs = instructionSignatures(transaction);
-  if (expectedSigs.length !== actualSigs.length) return false;
-  return expectedSigs.every((signature, index) => signature === actualSigs[index]);
+  const expectedSigs = new Set(instructionSignatures(expected));
+  const recipientAddresses = new Set(payment.recipients.map((recipient) => recipient.address));
+  const actualNonCompute = transaction.instructions.filter((instruction) => instruction.programId.toBase58() !== COMPUTE_BUDGET_PROGRAM);
+  const actualSigs = new Set<string>();
+  for (const instruction of actualNonCompute) {
+    const signature = JSON.stringify({
+      programId: instruction.programId.toBase58(),
+      keys: instruction.keys.map((key) => key.pubkey.toBase58()),
+      data: bs58.encode(instruction.data),
+    });
+    if (expectedSigs.has(signature)) { actualSigs.add(signature); continue; }
+    if (!isSafeWalletExtra(instruction, attempt.payer)) return false;
+  }
+  void recipientAddresses;
+  for (const signature of expectedSigs) {
+    if (!actualSigs.has(signature)) return false;
+  }
+  return true;
 }
 function littleEndian(data: Uint8Array) {
   let value = 0n;
@@ -426,9 +462,8 @@ async function checkInstructions(payment: PaymentIntent, attempt: Attempt, parse
   const payer = attempt.payer;
   const allowed = payment.asset === 'SOL' ? new Set([SystemProgram.programId.toBase58(), MEMO_PROGRAM, COMPUTE_BUDGET_PROGRAM]) : new Set([TOKEN_PROGRAM_ID.toBase58(), ASSOCIATED_TOKEN_PROGRAM_ID.toBase58(), MEMO_PROGRAM, COMPUTE_BUDGET_PROGRAM]);
   if (instructions.some((instruction) => !allowed.has(instruction.programId.toBase58()))) throw new PaymentError('Transaction includes an unexpected instruction.');
-  const expectedCount = payment.asset === 'SOL' ? payment.recipients.length + 1 : payment.recipients.length * 2 + 1;
   const computeInstructions = instructions.filter((instruction) => instruction.programId.toBase58() === COMPUTE_BUDGET_PROGRAM);
-  if (instructions.length !== expectedCount + computeInstructions.length || computeInstructions.length > 4) throw new PaymentError('Transaction instruction count is invalid.');
+  if (computeInstructions.length > 4) throw new PaymentError('Transaction instruction count is invalid.');
   let unitLimit = DEFAULT_COMPUTE_UNIT_LIMIT;
   let unitPrice = 0n;
   const seenComputeTypes = new Set<string>();
@@ -473,10 +508,26 @@ async function checkInstructions(payment: PaymentIntent, attempt: Attempt, parse
   const signers = parsed.transaction.message.accountKeys.filter((key) => key.signer).map((key) => key.pubkey.toBase58());
   if (signers.length !== 1 || signers[0] !== payer || parsed.transaction.message.accountKeys[0]?.pubkey.toBase58() !== payer) throw new PaymentError('Transaction payer or signer set is invalid.');
   const memo = 'auno:' + payment.id + ':' + attempt.id;
-  if (instructions.filter((instruction) => instruction.programId.toBase58() === MEMO_PROGRAM && instruction.parsed === memo).length !== 1) throw new PaymentError('Payment reference is missing.');
+  if (instructions.filter((instruction) => instruction.programId.toBase58() === MEMO_PROGRAM && instruction.parsed === memo).length < 1) throw new PaymentError('Payment reference is missing.');
   const transfers = instructions.filter((instruction) => instruction.programId.toBase58() === (payment.asset === 'SOL' ? SystemProgram.programId.toBase58() : TOKEN_PROGRAM_ID.toBase58()));
   const associatedCreations = instructions.filter((instruction) => instruction.programId.toBase58() === ASSOCIATED_TOKEN_PROGRAM_ID.toBase58());
-  if (transfers.length !== payment.recipients.length) throw new PaymentError('Expected transfers are missing.');
+  if (transfers.length < payment.recipients.length) throw new PaymentError('Expected transfers are missing.');
+  if (payment.asset === 'SOL') {
+    const recipientAddresses = new Set(payment.recipients.map((recipient) => recipient.address));
+    const recipientAmounts = new Map(payment.recipients.map((recipient) => [recipient.address, recipient.amountBaseUnits]));
+    for (const instruction of transfers) {
+      const parsedInstruction = instruction.parsed as { type?: string; info?: Record<string, unknown> };
+      const info = parsedInstruction?.info || {};
+      if (parsedInstruction.type !== 'transfer') throw new PaymentError('Transaction includes an unexpected transfer instruction.');
+      if (info.source !== payer) throw new PaymentError('Transaction includes an unexpected transfer instruction.');
+      const destination = String(info.destination);
+      if (recipientAddresses.has(destination)) {
+        if (String(info.lamports) !== recipientAmounts.get(destination)) throw new PaymentError('Recipient transfer amount is incorrect.');
+      } else if (!JITO_TIP_ACCOUNTS.has(destination)) {
+        throw new PaymentError('Transaction includes an unexpected transfer instruction.');
+      }
+    }
+  } else if (transfers.length !== payment.recipients.length) throw new PaymentError('Expected transfers are missing.');
   for (const recipient of payment.recipients) {
     const destination = payment.asset === 'USDC' ? await getAssociatedTokenAddress(new PublicKey(ASSETS.USDC.mint), new PublicKey(recipient.address)) : null;
     const source = payment.asset === 'USDC' ? await getAssociatedTokenAddress(new PublicKey(ASSETS.USDC.mint), new PublicKey(payer)) : null;

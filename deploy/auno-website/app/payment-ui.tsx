@@ -5,7 +5,7 @@ import { WalletIcon } from "@web3icons/react/dynamic";
 import { Wallet } from "lucide-react";
 import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiCopy, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers, FiX } from "react-icons/fi";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { toast } from "sonner";
 import { MainnetBetaRibbon, Footer, Nav } from "./ui";
 import {
@@ -26,6 +26,11 @@ import {
   type SplitRecipient,
 } from "@/lib/payments/model";
 import { availableWallets, connectWallet, type WalletSession } from "@/lib/payments/wallet";
+
+const EmbeddedCheckout = lazy(async () => {
+  const module = await import("./checkout");
+  return { default: module.Checkout };
+});
 
 type SplitSettlement = {
   paymentId: string;
@@ -219,6 +224,8 @@ export function CreatePayment() {
   const [reference, setReference] = useState("");
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<PaymentIntent | null>(null);
+  const [checkoutVisited, setCheckoutVisited] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
   const network = useBrowserNetwork();
   const mainnet = network === "mainnet-beta";
 
@@ -254,7 +261,10 @@ export function CreatePayment() {
         origin: location.origin,
       });
       const signature = await wallet.signMessage(creationMessage(payload, network));
-      setCreated(await api("/api/payments", { payload, signature }));
+      const nextPayment = await api("/api/payments", { payload, signature });
+      setCreated(nextPayment);
+      setCheckoutVisited(false);
+      setShowCheckout(false);
       toast.success("Payment link created.", { id: notification });
     } catch (error) {
       toast.error(errorText(error), { id: notification });
@@ -287,22 +297,31 @@ export function CreatePayment() {
           </form>
           {created && (
             <div className="payment-ready-backdrop">
-              <section className="payment-ready-panel" role="dialog" aria-modal="true" aria-labelledby="payment-ready-title">
-                <button className="payment-ready-close" type="button" aria-label="Close payment link panel" onClick={() => setCreated(null)}><FiX aria-hidden="true" /></button>
-                <div className="eyebrow">PAYMENT LINK CREATED <span className="badge">{created.asset}</span></div>
-                <h2 id="payment-ready-title">Payment link ready.</h2>
-                <p>Keep editing this request or share the link when you are ready.</p>
-                <div className="receipt-details payment-ready-details">
-                  <div><span>Amount</span><strong>{created.amount} {created.asset}</strong></div>
-                  <div><span>Recipient</span><strong>{created.recipients[0]?.address}</strong></div>
+              {checkoutVisited && (
+                <div hidden={!showCheckout}>
+                  <Suspense fallback={<section className="checkout panel checkout-embedded" role="status">Loading secure checkout…</section>}>
+                    <EmbeddedCheckout id={created.id} initialPayment={created} embedded onBack={() => setShowCheckout(false)} />
+                  </Suspense>
                 </div>
-                <code className="payment-ready-link">{url}</code>
-                <div className="payment-ready-actions">
-                  <button className="button" type="button" onClick={async () => { try { await navigator.clipboard.writeText(url); toast.success("Payment link copied."); } catch { toast.error("Copy failed. Select and copy the link above."); } }}>Copy Link <FiCopy className="inline-icon action-icon" aria-hidden="true" /></button>
-                  <a className="button light" href={`/pay/${created.id}`}>Open Checkout <FiArrowRight className="inline-icon action-icon" aria-hidden="true" /></a>
-                </div>
-                <button className="payment-ready-stay" type="button" onClick={() => setCreated(null)}>Keep editing</button>
-              </section>
+              )}
+              {!showCheckout && (
+                <section className="payment-ready-panel" role="dialog" aria-modal="true" aria-labelledby="payment-ready-title">
+                  <button className="payment-ready-close" type="button" aria-label="Close payment link panel" onClick={() => { setCreated(null); setCheckoutVisited(false); setShowCheckout(false); }}><FiX aria-hidden="true" /></button>
+                  <div className="eyebrow">PAYMENT LINK CREATED <span className="badge">{created.asset}</span></div>
+                  <h2 id="payment-ready-title">Payment link ready.</h2>
+                  <p>Keep editing this request or open its checkout when you are ready.</p>
+                  <div className="receipt-details payment-ready-details">
+                    <div><span>Amount</span><strong>{created.amount} {created.asset}</strong></div>
+                    <div><span>Recipient</span><strong>{created.recipients[0]?.address}</strong></div>
+                  </div>
+                  <code className="payment-ready-link">{url}</code>
+                  <div className="payment-ready-actions">
+                    <button className="button" type="button" onClick={async () => { try { await navigator.clipboard.writeText(url); toast.success("Payment link copied."); } catch { toast.error("Copy failed. Select and copy the link above."); } }}>Copy Link <FiCopy className="inline-icon action-icon" aria-hidden="true" /></button>
+                    <button className="button light" type="button" onClick={() => { setCheckoutVisited(true); setShowCheckout(true); }}>Open Checkout <FiArrowRight className="inline-icon action-icon" aria-hidden="true" /></button>
+                  </div>
+                  <button className="payment-ready-stay" type="button" onClick={() => { setCreated(null); setCheckoutVisited(false); setShowCheckout(false); }}>Keep editing</button>
+                </section>
+              )}
             </div>
           )}
         </div>

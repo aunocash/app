@@ -65,6 +65,10 @@ assert.match(homePage, /isMainnetRequest\(\).*?<Home network=\{mainnet \? 'mainn
 assert.match(developersPage, /isMainnetRequest\(\).*?<Developers network=\{mainnet \? 'mainnet' : undefined\}/s);
 assert.doesNotMatch(docsPage, /MainnetInfoPage/);
 assert.match(docsPage, /Solana Mainnet Beta/);
+assert.match(docsPage, /serverMainnetSplitsEnabled/);
+assert.match(docsPage, /0\.1 SOL or 100 USDC/);
+assert.match(developers, /Payers cannot be a split recipient/);
+assert.match(developers, /Mainnet Beta limits each link to 0\.1 SOL or 100 USDC/);
 assert.match(paymentUi, /AUNO Mainnet Payment/);
 assert.match(paymentUi, /Mainnet Beta payment link/);
 assert.match(paymentUi, /mainnetSplits/);

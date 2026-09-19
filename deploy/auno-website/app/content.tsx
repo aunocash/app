@@ -31,7 +31,7 @@ const developerCapabilities = [
 export function Developers({ network }: { network?: "mainnet" }) {
   const mainnet = network === "mainnet";
   const capabilities = mainnet ? [
-    { ...developerCapabilities[0], status: "Mainnet Beta", description: "Create and share immutable Mainnet Beta SOL payment requests." },
+    { ...developerCapabilities[0], status: "Mainnet Beta", description: "Create and share immutable Mainnet Beta SOL and USDC payment requests." },
     { ...developerCapabilities[1], status: "Mainnet Beta", description: "Wallet-managed signing and finalized server-verified receipts on Solana Mainnet." },
     { ...developerCapabilities[2], status: "Feature policy", description: "Multi-recipient SOL settlement is available only when the Mainnet split policy is active." },
     ...developerCapabilities.slice(3),
@@ -42,11 +42,11 @@ export function Developers({ network }: { network?: "mainnet" }) {
       <main className="page-shell developers-page">
         <header className="developer-page-header">
           <div className="eyebrow">{mainnet ? "MAINNET BETA" : "DEVELOPER PREVIEW"}</div>
-          <h1>A clear path from<br />intent to settlement.</h1>
-          <p>{mainnet ? "Mainnet Beta payment primitives with finalized settlement verification." : "Internal payment primitives today. A stable public developer platform next."}</p>
+          <h1>{mainnet ? <>Mainnet Beta,<br />from intent to settlement.</> : <>A clear path from<br />intent to settlement.</>}</h1>
+          <p>{mainnet ? "Capped SOL and USDC payment primitives with finalized settlement verification." : "Internal payment primitives today. A stable public developer platform next."}</p>
         </header>
 
-        <div className="notice">@auno/sdk is not published. These internal endpoints power the application and may change. Origin checks and signed wallet messages apply; there is no public API key product. {mainnet && "Mainnet features remain subject to the active settlement and split-release policies."}</div>
+        <div className="notice">@auno/sdk is not published. These internal endpoints power the application and may change. Origin checks and signed wallet messages apply; there is no public API key product. {mainnet && "Mainnet Beta limits each link to 0.1 SOL or 100 USDC; split payments require a separate active feature policy."}</div>
 
         <section className="developer-capabilities" aria-labelledby="platform-capabilities-title">
           <div className="developer-capabilities-heading">
@@ -74,11 +74,11 @@ export function Developers({ network }: { network?: "mainnet" }) {
           <table>
             <thead><tr><th>Endpoint</th><th>Purpose</th><th>Access</th></tr></thead>
             <tbody>{[
-              ["POST /api/payments", "Create an immutable intent", "Signed merchant payload"],
+["POST /api/payments", mainnet ? "Create a capped immutable Mainnet intent" : "Create an immutable intent", "Signed merchant payload"],
               ["GET /api/payments?wallet=…", "List up to 200 merchant payments", "Signed history authorization"],
               ["GET /api/payments/:id", "Load checkout or receipt", "Site access + link ID"],
               ["POST /api/payments/:id/prepare", mainnet ? "Build Mainnet Beta transaction" : "Build devnet transaction", "Same origin; active intent"],
-              ["POST /api/payments/:id/submit", "Record wallet-broadcast transaction", "Same origin; valid payer signature"],
+["POST /api/payments/:id/submit", "Record wallet-broadcast transaction", "Same origin; valid payer signature"],
               ["POST /api/payments/:id/verify", "Verify finalized settlement", "Same origin; associated signature"],
               ["GET /api/health", mainnet ? "Check storage and Mainnet RPC" : "Check storage and devnet RPC", "Site access"],
             ].map((endpoint) => <tr key={endpoint[0]}>{endpoint.map((cell) => <td key={cell}>{cell}</td>)}</tr>)}</tbody>
@@ -90,6 +90,11 @@ export function Developers({ network }: { network?: "mainnet" }) {
           <pre>{'type PaymentIntent = {\n  id: string;\n  merchantWallet: string;\n  title: string;\n  asset: "SOL" | "USDC";\n  amount: string;\n  amountBaseUnits: string; // integer; never a float\n  recipients: PaymentRecipient[];\n  expiresAt: number;\n  status: PaymentStatus;\n  transactionSignature: string | null;\n};'}</pre>
         </section>
 
+        {mainnet && <section className="doc-section">
+          <h2>Mainnet Beta scope</h2>
+          <p>Standard links support SOL and USDC within their configured caps. Split settlement is separate from standard settlement: it must be enabled explicitly and remains limited to the current Mainnet Beta policy. Payers cannot be a split recipient.</p>
+        </section>}
+
         <section className="doc-section">
           <h2>Settlement contract</h2>
           <p>Browser state is not settlement truth. A receipt requires finalized RPC verification against the stored payment intent, per-attempt memo, expected transfer, payer, recipient, and permitted instructions. A retry of the same verified signature returns the existing receipt. Never implement success with a timer or trust a client-provided status.</p>
@@ -98,7 +103,7 @@ export function Developers({ network }: { network?: "mainnet" }) {
 
         <section className="doc-section" id="platform-status">
           <h2>Platform status</h2>
-          <p>Public API, SDK, webhooks, escrow, and subscriptions are not available. The internal engine is {mainnet ? "a bounded Mainnet Beta release." : "a devnet developer preview."} Use the payment UI to exercise the current integration and report failures without sharing keys or seed phrases.</p>
+          <p>Public API, SDK, webhooks, escrow, and subscriptions are not available. The internal engine is {mainnet ? "a bounded Mainnet Beta release with public signed-link creation and finalized receipts." : "a devnet developer preview."} Use the payment UI to exercise the current integration and report failures without sharing keys or seed phrases.</p>
           <a href="/api/health" target="_blank" rel="noreferrer">Check service health <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a>
         </section>
       </main>

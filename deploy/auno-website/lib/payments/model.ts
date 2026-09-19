@@ -12,7 +12,7 @@ export const NETWORKS = {
   'mainnet-beta': {
     id: 'mainnet-beta',
     label: 'Solana Mainnet Beta',
-    genesisHash: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+    genesisHash: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',
     defaultRpc: '',
     explorerCluster: null,
     supportsUsdc: false,

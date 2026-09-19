@@ -12,6 +12,7 @@ const model=await import('../work/model.mjs');
 let passed=0;
 function check(name,fn){fn();console.log('PASS',name);passed++}
 check('SOL and USDC precision',()=>{assert.equal(model.toBaseUnits('0.000000001',9),1n);assert.equal(model.toBaseUnits('100.000001',6),100000001n);assert.equal(model.displayUnits(100000000n,6),'100')});
+check('Mainnet genesis hash is complete',()=>{assert.equal(model.NETWORKS['mainnet-beta'].genesisHash,'5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d')});
 check('Reject unsafe decimal input',()=>{for(const x of ['1e3','-1','0','NaN','1.0000001','9007199254740992'])assert.throws(()=>model.toBaseUnits(x,6));});
 check('Split rounding conserves base units',()=>{assert.deepEqual(model.allocate(101n,[8000,1500,500]),[81n,15n,5n]);assert.throws(()=>model.allocate(1n,[5000,5000]));assert.throws(()=>model.allocate(100n,[5000,4900]));});
 const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync('drizzle/0000_lush_the_executioner.sql','utf8'));sqlite.exec(readFileSync('drizzle/0001_secure_atomic_split.sql','utf8'));sqlite.exec(readFileSync('drizzle/0002_mainnet_beta.sql','utf8'));

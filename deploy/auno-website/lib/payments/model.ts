@@ -60,7 +60,7 @@ export function validateRecipients(recipients:SplitRecipient[]):SplitRecipient[]
   }
   return validateSplitRecipients(recipients);
 }
-export function networkForOrigin(origin:string):NetworkId { try { return new URL(origin).hostname === 'mainnet.auno.cash' ? 'mainnet-beta' : 'devnet'; } catch { return 'devnet'; } }
+export function networkForOrigin(origin:string):NetworkId { try { const host=new URL(origin).hostname; return host==='auno.cash'||host==='mainnet.auno.cash' ? 'mainnet-beta' : 'devnet'; } catch { return 'devnet'; } }
 export function explorer(signature:string,network:NetworkId='devnet'){const cluster=NETWORKS[network].explorerCluster;return `https://explorer.solana.com/tx/${encodeURIComponent(signature)}${cluster?`?cluster=${cluster}`:''}`;}
 export function creationMessage(payload:string,network:NetworkId='devnet'){return `AUNO ${network} payment creation\n${payload}`;}
 export function historyMessage(wallet:string,timestamp:number,origin:string,network:NetworkId='devnet'){return `AUNO ${network} payment history\n${origin}\n${wallet}\n${timestamp}`;}

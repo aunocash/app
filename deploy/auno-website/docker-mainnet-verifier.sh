@@ -3,13 +3,20 @@ set -eu
 
 cd /app
 
-if [ "${SOLANA_NETWORK:-}" != "mainnet-beta" ] || [ "${AUNO_COOLIFY_MAINNET_STAGING:-}" != "true" ]; then
-  echo "The verifier is restricted to isolated Coolify Mainnet staging." >&2
+if [ "${SOLANA_NETWORK:-}" != "mainnet-beta" ]; then
+  echo "The verifier is restricted to Coolify Mainnet deployments." >&2
   exit 64
 fi
-
-if [ "${AUNO_MAINNET_ENABLED:-false}" != "false" ]; then
+if [ "${AUNO_COOLIFY_MAINNET_STAGING:-}" != "true" ] && [ "${AUNO_COOLIFY_MAINNET_PRODUCTION:-}" != "true" ]; then
+  echo "The verifier requires the Coolify Mainnet staging or production Compose deployment." >&2
+  exit 64
+fi
+if [ "${AUNO_COOLIFY_MAINNET_STAGING:-}" = "true" ] && [ "${AUNO_MAINNET_ENABLED:-false}" != "false" ]; then
   echo "Coolify Mainnet staging cannot enable settlement." >&2
+  exit 64
+fi
+if [ "${AUNO_COOLIFY_MAINNET_PRODUCTION:-}" = "true" ] && [ "${AUNO_MAINNET_ENABLED:-false}" != "true" ]; then
+  echo "Coolify Mainnet production must set AUNO_MAINNET_ENABLED=true." >&2
   exit 64
 fi
 

@@ -101,7 +101,7 @@ function WalletButton({ session, onChange }: { session: WalletSession | null; on
     if (!detected.length) {
       setOpen(false);
       toast.error("No compatible wallet detected.", {
-        description: "Install a Wallet Standard Solana wallet with Devnet support, then reload.",
+        description: "Install a Wallet Standard Solana wallet for this network, then reload.",
         action: {
           label: "Get Phantom",
           onClick: () => window.open("https://phantom.com/download", "_blank", "noopener,noreferrer"),
@@ -281,7 +281,7 @@ export function CreatePayment() {
           <div className="panel-title">Payment details <span className="badge">{mainnet ? "MAINNET BETA" : "DEVNET"}</span></div>
           <WalletButton session={wallet} onChange={changeWallet} />
           <form noValidate onSubmit={submit}>
-            <label style={{ marginTop: 25 }}>Title<input required maxLength={120} placeholder="AUNO Test Payment" value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+            <label style={{ marginTop: 25 }}>Title<input required maxLength={120} placeholder={mainnet ? "AUNO Mainnet Payment" : "AUNO Test Payment"} value={title} onChange={(event) => setTitle(event.target.value)} /></label>
             <label>Description <span className="muted">(optional)</span><textarea maxLength={1000} placeholder={mainnet ? "Mainnet Beta payment link" : "Testing AUNO Payment Link on Solana Devnet"} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
             <div className="two">
               <label>Amount<input required inputMode="decimal" placeholder="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
@@ -358,8 +358,9 @@ export function Checkout({ id }: { id: string }) {
       return;
     }
     setBusy(true);
-    setState("Preparing your devnet transaction…");
-    const notification = toast.loading("Preparing your Devnet transaction…");
+    const transactionNetwork = payment.network === "mainnet-beta" ? "Mainnet Beta" : "Devnet";
+    setState(`Preparing your ${transactionNetwork} transaction…`);
+    const notification = toast.loading(`Preparing your ${transactionNetwork} transaction…`);
     try {
       const prepared = await api<{ transaction: string; attemptId: string; attemptToken: string }>(`/api/payments/${id}/prepare`, { payer: wallet.address });
       setAttempt({ id: prepared.attemptId, token: prepared.attemptToken });
@@ -419,7 +420,34 @@ export function PaymentHistory() {
   }
 
   const visible = (payments || []).filter((payment) => (filter === "ALL" || payment.status === filter) && `${payment.title} ${payment.id}`.toLowerCase().includes(search.toLowerCase()));
-  return <AppShell title="Your payment history." subtitle="Actual payment requests, with settlement verified on Solana."><div className="actions"><WalletButton session={wallet} onChange={(nextWallet) => { setWallet(nextWallet); setPayments(null); }} />{wallet && <button className="button" disabled={busy} onClick={load}>{busy ? "Authorizing…" : "Authorize & Load History"}</button>}</div>{payments === null ? <div className="empty"><h2>Your payments belong here.</h2><p>Connect your merchant wallet and sign a message to view payment requests.</p></div> : <><div className="history-tools"><input aria-label="Search payments" placeholder="Search title or payment ID" value={search} onChange={(event) => setSearch(event.target.value)} /><select aria-label="Filter status" value={filter} onChange={(event) => setFilter(event.target.value)}>{["ALL", "ACTIVE", "PAID", "EXPIRED", "CANCELLED"].map((status) => <option key={status}>{status}</option>)}</select></div>{visible.length ? <div className="table-wrap"><table><thead><tr><th>Payment</th><th>Amount</th><th>Status</th><th>Created</th><th>Transaction</th></tr></thead><tbody>{visible.map((payment) => <tr key={payment.id}><td><a href={`/pay/${payment.id}`}>{payment.title} <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a></td><td>{payment.amount} {payment.asset}</td><td><span className="badge">{payment.status}</span></td><td>{new Date(payment.createdAt).toLocaleDateString("en-US")}</td><td>{payment.transactionSignature ? <a href={explorer(payment.transactionSignature)} target="_blank" rel="noreferrer">Explorer <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a> : "—"}</td></tr>)}</tbody></table></div> : <div className="empty"><h2>No payments found.</h2><p>Create your first payment link or adjust your filters.</p><a className="button" href="/dashboard/create">Create Payment <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a></div>}<p className="detail-note">Up to 200 most recent requests. No sample transactions.</p></>}</AppShell>;
+  return (
+    <AppShell title="Your payment history." subtitle="Actual payment requests, with settlement verified on Solana.">
+      <div className="actions">
+        <WalletButton session={wallet} onChange={(nextWallet) => { setWallet(nextWallet); setPayments(null); }} />
+        {wallet && <button className="button" disabled={busy} onClick={load}>{busy ? "Authorizing…" : "Authorize & Load History"}</button>}
+      </div>
+      {payments === null ? (
+        <div className="empty"><h2>Your payments belong here.</h2><p>Connect your merchant wallet and sign a message to view payment requests.</p></div>
+      ) : (
+        <>
+          <div className="history-tools">
+            <input aria-label="Search payments" placeholder="Search title or payment ID" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <select aria-label="Filter status" value={filter} onChange={(event) => setFilter(event.target.value)}>
+              {["ALL", "ACTIVE", "PAID", "EXPIRED", "CANCELLED"].map((status) => <option key={status}>{status}</option>)}
+            </select>
+          </div>
+          {visible.length ? (
+            <div className="table-wrap"><table><thead><tr><th>Payment</th><th>Amount</th><th>Status</th><th>Created</th><th>Transaction</th></tr></thead><tbody>
+              {visible.map((payment) => <tr key={payment.id}><td><a href={"/pay/" + payment.id}>{payment.title} <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a></td><td>{payment.amount} {payment.asset}</td><td><span className="badge">{payment.status}</span></td><td>{new Date(payment.createdAt).toLocaleDateString("en-US")}</td><td>{payment.transactionSignature ? <a href={explorer(payment.transactionSignature, payment.network)} target="_blank" rel="noreferrer">Explorer <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a> : "—"}</td></tr>)}
+            </tbody></table></div>
+          ) : (
+            <div className="empty"><h2>No payments found.</h2><p>Create your first payment link or adjust your filters.</p><a className="button" href="/dashboard/create">Create Payment <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a></div>
+          )}
+          <p className="detail-note">Up to 200 most recent requests. No sample transactions.</p>
+        </>
+      )}
+    </AppShell>
+  );
 }
 
 function SplitReceipt({ receipt }: { receipt: PaymentIntent }) {

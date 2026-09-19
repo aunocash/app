@@ -35,7 +35,7 @@ for (const message of [
   "Connect your merchant wallet first.",
   "Payment link created.",
   "Payment link copied.",
-  "Preparing your Devnet transaction",
+  "Preparing your ${transactionNetwork} transaction",
   "Payment submitted.",
   "Payment verified.",
   "Authorizing payment history",

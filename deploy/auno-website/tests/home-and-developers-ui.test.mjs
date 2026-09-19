@@ -8,6 +8,7 @@ const styles = fs.readFileSync(new URL("../app/globals.css", import.meta.url), "
 const mainnetSite = fs.readFileSync(new URL("../app/mainnet-site.tsx", import.meta.url), "utf8");
 const siteNetwork = fs.readFileSync(new URL("../lib/site-network.ts", import.meta.url), "utf8");
 const homePage = fs.readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+const splitPage = fs.readFileSync(new URL("../app/split/page.tsx", import.meta.url), "utf8");
 
 assert.match(home, /Public Beta · Solana Devnet/);
 assert.match(home, /Test payment flows with SOL and USDC before mainnet release\./);
@@ -43,3 +44,6 @@ assert.match(mainnetSite, /USDC and split payments are unavailable in this beta/
 assert.doesNotMatch(mainnetSite, /Try on Devnet|Solana Devnet/);
 assert.match(siteNetwork, /mainnet\.auno\.cash/);
 assert.match(homePage, /isMainnetRequest\(\).*?<MainnetHome/s);
+assert.match(paymentUi, /AUNO Mainnet Payment/);
+assert.match(paymentUi, /Mainnet Beta payment link/);
+assert.match(splitPage, /isMainnetRequest\(\).*?<MainnetInfoPage page="split"/s);

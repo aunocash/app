@@ -2,13 +2,14 @@ import { FiArrowRight, FiCheckCircle, FiLock, FiShield } from "react-icons/fi";
 import Link from "next/link";
 import { Footer, Nav } from "./ui";
 
-type MainnetPage = "docs" | "developers" | "roadmap" | "whitepaper";
+type MainnetPage = "docs" | "developers" | "roadmap" | "whitepaper" | "split";
 
 const pageTitles: Record<MainnetPage, string> = {
   docs: "Mainnet Beta documentation.",
   developers: "Mainnet Beta developer access.",
   roadmap: "Mainnet Beta rollout.",
   whitepaper: "Mainnet Beta operating model.",
+  split: "Split payments are unavailable.",
 };
 
 export function MainnetHome() {

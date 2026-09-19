@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import { FiArrowRight, FiCheckCircle, FiCode, FiDownload, FiExternalLink, FiLock, FiShield } from "react-icons/fi";
 import { Footer } from "../ui";
 import { DocsSearch } from "./docs-search";
+import { MainnetInfoPage } from "../mainnet-site";
+import { isMainnetRequest } from "../../lib/site-network";
 
 export const metadata: Metadata = {
   title: "AUNO Docs — Programmable Payments on Solana",
@@ -24,7 +26,8 @@ function Section({ id, eyebrow, title, children }: { id: string; eyebrow: string
   return <section className="docs-portal-section" id={id}><p className="docs-portal-kicker">{eyebrow}</p><h2>{title}</h2><div className="docs-portal-copy">{children}</div></section>;
 }
 
-export default function DocsPage() {
+export default async function DocsPage() {
+  if (await isMainnetRequest()) return <MainnetInfoPage page="docs" />;
   return <>
     <header className="docs-portal-header">
       <Link className="docs-portal-brand" href="/" aria-label="AUNO home"><img className="brand-logo docs-portal-logo" src="/auno-logo.png" alt="" width="34" height="34" /><span>AUNO <b>Docs</b></span></Link>

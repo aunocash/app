@@ -1,2 +1,7 @@
 import { Roadmap } from '../roadmap-view';
-export default Roadmap;
+import { MainnetInfoPage } from '../mainnet-site';
+import { isMainnetRequest } from '../../lib/site-network';
+
+export default async function RoadmapPage() {
+  return await isMainnetRequest() ? <MainnetInfoPage page="roadmap" /> : <Roadmap />;
+}

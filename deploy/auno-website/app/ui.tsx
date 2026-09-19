@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- Full document navigation resets payment wallet state. */
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import type { IconType } from "react-icons";
 import {
   FiArrowDown,
@@ -30,6 +30,15 @@ const ActionArrow = () => <FiArrowRight className="inline-icon action-icon" aria
 const LaunchIcon = () => <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" />;
 const CONTRACT_ADDRESS = "52YLW3zzqzViDnZ421Vu17YyTv8TyMfxjUqZ8AYqpump";
 const isMainnetSite = () => typeof window !== "undefined" && window.location.hostname === "mainnet.auno.cash";
+type SiteNetwork = "devnet" | "mainnet";
+
+function useMainnetSite(network?: SiteNetwork) {
+  return useSyncExternalStore(
+    () => () => undefined,
+    () => network === "mainnet" || isMainnetSite(),
+    () => network === "mainnet",
+  );
+}
 
 type ProductFeature = {
   icon: IconType;
@@ -52,13 +61,14 @@ export function Brand() {
   return <a href="/" className="brand" aria-label="AUNO home"><img className="brand-logo" src="/auno-logo.png" alt="" width="48" height="48" />AUNO<span className="brand-dot">®</span></a>;
 }
 
-export function Nav() {
+export function Nav({ network }: { network?: SiteNetwork }) {
   const [open, setOpen] = useState(false);
-  const mainnet = isMainnetSite();
+  const mainnet = useMainnetSite(network);
   return <header className="nav"><div className="nav-inner"><Brand /><div className="nav-actions"><button className="menu" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? <FiX aria-hidden="true" /> : <FiMenu aria-hidden="true" />}</button></div><nav className={open ? "open" : ""}><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Docs</a><a href="/roadmap">Roadmap</a><a className="social-link nav-social-link" href="https://x.com/aunocash" target="_blank" rel="noreferrer" aria-label="Follow AUNO on X"><FaXTwitter aria-hidden="true" /></a><a className="button small" href="/dashboard/create">{mainnet ? "Mainnet Beta" : "Try on Devnet"} <LaunchIcon /></a></nav></div></header>;
 }
 
-export function Footer() {
+export function Footer({ network }: { network?: SiteNetwork }) {
+  const mainnet = useMainnetSite(network);
   async function copyContractAddress() {
     try {
       await navigator.clipboard.writeText(CONTRACT_ADDRESS);
@@ -68,7 +78,7 @@ export function Footer() {
     }
   }
 
-  return <footer><div><Brand /><p>Programmable Payments on Solana.</p><div className="contract-address"><span>CA</span><code title={CONTRACT_ADDRESS}>{CONTRACT_ADDRESS}</code><button type="button" onClick={copyContractAddress} aria-label="Copy AUNO contract address"><FiCopy aria-hidden="true" /></button></div></div><div><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Documentation</a><a href="/whitepaper">Whitepaper</a><a href="/roadmap">Roadmap</a><a className="social-link footer-social-link" href="https://x.com/aunocash" target="_blank" rel="noreferrer" aria-label="Follow AUNO on X"><FaXTwitter aria-hidden="true" /></a></div><div className="footer-bottom"><span>© 2026 AUNO</span><span>Value in motion.</span><span>Designed for auno.cash</span></div></footer>;
+  return <footer><div><Brand /><p>Programmable Payments on Solana.</p><div className="contract-address"><span>CA</span><code title={CONTRACT_ADDRESS}>{CONTRACT_ADDRESS}</code><button type="button" onClick={copyContractAddress} aria-label="Copy AUNO contract address"><FiCopy aria-hidden="true" /></button></div></div><div><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Documentation</a><a href="/whitepaper">Whitepaper</a><a href="/roadmap">Roadmap</a><a className="social-link footer-social-link" href="https://x.com/aunocash" target="_blank" rel="noreferrer" aria-label="Follow AUNO on X"><FaXTwitter aria-hidden="true" /></a></div><div className="footer-bottom"><span>© 2026 AUNO</span><span>Value in motion.</span><span>{mainnet ? "Mainnet Beta" : "Designed for auno.cash"}</span></div></footer>;
 }
 
 export function Flow() {

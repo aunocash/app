@@ -15,13 +15,15 @@ export const NETWORKS = {
     genesisHash: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',
     defaultRpc: '',
     explorerCluster: null,
-    supportsUsdc: false,
+    supportsUsdc: true,
   },
 } as const;
 export type NetworkId = keyof typeof NETWORKS;
 export type PaymentNetwork = NetworkId;
 export const DEVNET_RPC = NETWORKS.devnet.defaultRpc;
-export const ASSETS = { SOL: { decimals: 9, mint: null }, USDC: { decimals: 6, mint: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU' } } as const;
+export const MAINNET_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+export const ASSETS = { SOL: { decimals: 9, mint: null }, USDC: { decimals: 6, mints: { devnet: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', 'mainnet-beta': MAINNET_USDC_MINT } } } as const;
+export function usdcMint(network: NetworkId): string { return ASSETS.USDC.mints[network]; }
 export const MEMO_PROGRAM = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
 export type Asset = keyof typeof ASSETS;
 export type PaymentStatus = 'ACTIVE'|'PAID'|'EXPIRED'|'CANCELLED';

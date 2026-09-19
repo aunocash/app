@@ -45,6 +45,19 @@ case "$SOLANA_NETWORK" in
       echo "Coolify Mainnet must retain the 0.1 SOL maximum." >&2
       exit 64
     fi
+    case "${AUNO_MAINNET_USDC_ENABLED:-true}" in
+      true|false) ;;
+      *) echo "AUNO_MAINNET_USDC_ENABLED must be true or false." >&2
+         exit 64 ;;
+    esac
+    case "${AUNO_MAX_USDC_BASE_UNITS:-100000000}" in
+      ''|*[!0-9]*) echo "AUNO_MAX_USDC_BASE_UNITS must be a positive integer of USDC base units." >&2
+         exit 64 ;;
+    esac
+    if [ "${AUNO_MAX_USDC_BASE_UNITS:-100000000}" -gt 100000000 ]; then
+      echo "Coolify Mainnet must retain the 100 USDC maximum." >&2
+      exit 64
+    fi
     ;;
   *)
     echo "SOLANA_NETWORK must be devnet or mainnet-beta." >&2
@@ -76,7 +89,9 @@ umask 077
   if [ "$SOLANA_NETWORK" = "mainnet-beta" ]; then
     write_runtime_value AUNO_MAINNET_ENABLED "${AUNO_MAINNET_ENABLED:-false}"
     write_runtime_value AUNO_MAINNET_SPLITS_ENABLED "${AUNO_MAINNET_SPLITS_ENABLED:-false}"
+    write_runtime_value AUNO_MAINNET_USDC_ENABLED "${AUNO_MAINNET_USDC_ENABLED:-true}"
     write_runtime_value AUNO_MAX_SOL_LAMPORTS "${AUNO_MAX_SOL_LAMPORTS:-100000000}"
+    write_runtime_value AUNO_MAX_USDC_BASE_UNITS "${AUNO_MAX_USDC_BASE_UNITS:-100000000}"
     write_runtime_value AUNO_VERIFIER_BATCH_SIZE "${AUNO_VERIFIER_BATCH_SIZE:-25}"
     write_runtime_value AUNO_VERIFIER_TOKEN "$AUNO_VERIFIER_TOKEN"
   fi

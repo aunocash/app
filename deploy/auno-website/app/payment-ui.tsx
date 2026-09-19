@@ -290,7 +290,7 @@ export function CreatePayment() {
             <label>Description <span className="muted">(optional)</span><textarea maxLength={1000} placeholder={mainnet ? "Mainnet Beta payment link" : "Testing AUNO Payment Link on Solana Devnet"} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
             <div className="two">
               <label>Amount<input required inputMode="decimal" placeholder="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
-              <label>Asset<select value={asset} onChange={(event) => setAsset(event.target.value as Asset)}><option>SOL</option>{!mainnet && <option>USDC</option>}</select></label>
+              <label>Asset<select value={asset} onChange={(event) => setAsset(event.target.value as Asset)}><option>SOL</option><option>USDC</option></select></label>
             </div>
             <label>Recipient wallet<input required spellCheck={false} placeholder="Full Solana wallet address" value={recipient} onChange={(event) => setRecipient(event.target.value)} /></label>
             <div className="two">
@@ -332,8 +332,8 @@ export function CreatePayment() {
         </div>
         <aside>
           <div className="panel"><div className="eyebrow">CHECKOUT PREVIEW</div><h2>{title || "Your payment title"}</h2><p>{description || "Payment description appears here."}</p><div className="amount">{amount || "0.00"}<span>{asset}</span></div><div className="receipt-details"><div><span>Recipient</span><strong>{recipient || "Not selected"}</strong></div><div><span>Network</span><strong>{NETWORKS[network].label}</strong></div><div><span>Settlement</span><strong>Direct to recipient</strong></div></div></div>
-          <div className="notice">{mainnet ? "Public Mainnet Beta · SOL only · 0.1 SOL maximum. Never enter a seed phrase or private key." : "Use test assets only. SOL and USDC signing flows are implemented but have not passed real wallet end-to-end acceptance testing. Never enter a seed phrase or private key."}</div>
-          {mainnet && <MainnetBetaRibbon features={mainnetSplits ? "USDC" : "USDC and split payments"} />}
+          <div className="notice">{mainnet ? "Public Mainnet Beta · SOL and USDC · 0.1 SOL / 100 USDC maximum. Never enter a seed phrase or private key." : "Use test assets only. SOL and USDC signing flows are implemented but have not passed real wallet end-to-end acceptance testing. Never enter a seed phrase or private key."}</div>
+          {mainnet && !mainnetSplits && <MainnetBetaRibbon features="Split payments" />}
           {!mainnet && <a className="text-link" href="/docs#getting-started">How to get devnet test assets <FiArrowRight className="inline-icon action-icon" aria-hidden="true" /></a>}
         </aside>
       </div>
@@ -454,8 +454,8 @@ export function SplitCalculator({ network = "devnet" }: { network?: NetworkId } 
   try {
     recipients = validateSplitRecipients(rows.map((row) => ({ ...row, bps: percentToBps(row.bps) })));
     values = allocate(toBaseUnits(amount, ASSETS[asset].decimals), recipients.map((recipient) => recipient.bps));
-    if (mainnet && asset !== "SOL") throw new Error("Mainnet Beta split payments support SOL only.");
-    if (mainnet && toBaseUnits(amount, ASSETS.SOL.decimals) > 100000000n) throw new Error("Mainnet Beta split payments are limited to 0.1 SOL.");
+    if (mainnet && asset === "SOL" && toBaseUnits(amount, ASSETS.SOL.decimals) > 100000000n) throw new Error("Mainnet Beta split payments are limited to 0.1 SOL.");
+    if (mainnet && asset === "USDC" && toBaseUnits(amount, ASSETS.USDC.decimals) > 100000000n) throw new Error("Mainnet Beta split payments are limited to 100 USDC.");
   } catch (nextError) {
     error = errorText(nextError);
   }
@@ -578,7 +578,7 @@ const walletSignature = wallet.signAndSendTransaction
             <label className="split-field">
               <span className="split-field-label"><FiLayers aria-hidden="true" /> Asset</span>
               <select aria-label="Payment asset" value={asset} onChange={(event) => setAsset(event.target.value as Asset)}>
-                {!mainnet && <option>USDC</option>}
+                <option>USDC</option>
                 <option>SOL</option>
               </select>
             </label>

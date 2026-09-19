@@ -56,7 +56,7 @@ assert.match(styles, /\.nav-inner\s*\{[\s\S]*?max-width: 1440px/);
 assert.match(mainnetSite, /Payments are available to any merchant wallet/);
 assert.match(mainnetSite, /approved Mainnet merchants/);
 assert.doesNotMatch(paymentUi, /Allowlisted Mainnet Beta/);
-assert.match(mainnetSite, /USDC and split payments are unavailable in this beta/);
+assert.match(mainnetSite, /Split payments are unavailable in this beta/);
 assert.doesNotMatch(mainnetSite, /Try on Devnet|Solana Devnet/);
 assert.match(siteNetwork, /mainnet\.auno\.cash/);
 assert.match(homePage, /isMainnetRequest\(\).*?<MainnetHome/s);

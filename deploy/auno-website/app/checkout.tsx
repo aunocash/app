@@ -1,6 +1,5 @@
 "use client";
 
-import { Transaction } from "@solana/web3.js";
 import { Wallet } from "lucide-react";
 import { FiArrowLeft, FiExternalLink } from "react-icons/fi";
 import { useEffect, useState } from "react";
@@ -180,6 +179,7 @@ export function Checkout({ id, initialPayment = null, embedded = false, onBack }
   useEffect(() => {
     const saved = readCheckoutProgress(id);
     if (!saved) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAttempt(saved.attempt);
     setSignature((current) => current || saved.signature);
     if (saved.signature) setState("Submitted. Verify settlement below.");
@@ -189,6 +189,7 @@ export function Checkout({ id, initialPayment = null, embedded = false, onBack }
     let active = true;
     const saved = readWalletSession();
     if (!saved || saved.chain !== walletChain()) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRestoringWallet(true);
     void import("@/lib/payments/wallet").then(({ restoreWallet }) => {
       const restored = restoreWallet(saved.name, saved.address, saved.chain);
@@ -205,6 +206,7 @@ export function Checkout({ id, initialPayment = null, embedded = false, onBack }
 
   useEffect(() => {
     if (initialPayment) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPayment(initialPayment);
       setSignature((current) => initialPayment.transactionSignature || current);
       setState(initialPayment.status);

@@ -1,6 +1,5 @@
 "use client";
 
-import { Transaction } from "@solana/web3.js";
 import { WalletIcon } from "@web3icons/react/dynamic";
 import { Wallet } from "lucide-react";
 import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiCopy, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers, FiX } from "react-icons/fi";
@@ -28,8 +27,8 @@ import {
 import { availableWallets, clearWalletSession, connectWallet, saveWalletSession, type WalletSession } from "@/lib/payments/wallet";
 
 const EmbeddedCheckout = lazy(async () => {
-  const module = await import("./checkout");
-  return { default: module.Checkout };
+  const checkoutModule = await import("./checkout");
+  return { default: checkoutModule.Checkout };
 });
 
 type SplitSettlement = {

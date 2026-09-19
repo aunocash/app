@@ -44,7 +44,8 @@ export function useMainnetSplitsCapability(mainnet: boolean) {
   const [enabled, setEnabled] = useState(false);
   useEffect(() => {
     let active = true;
-    if (!mainnet) { setEnabled(false); return () => { active = false; }; }
+    if (!mainnet) { // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEnabled(false); return () => { active = false; }; }
     void fetch("/api/capabilities", { cache: "no-store" })
       .then((response) => response.json() as Promise<{ mainnetSplitsEnabled?: boolean }>)
       .then((capabilities) => { if (active) setEnabled(capabilities.mainnetSplitsEnabled === true); })

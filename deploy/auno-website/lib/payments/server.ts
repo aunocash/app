@@ -111,21 +111,28 @@ async function sha256(value: Uint8Array | string) {
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes as unknown as BufferSource));
   return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
-function paymentMessage(transaction: Transaction) {
-  const message = {
-    payer: transaction.feePayer?.toBase58() || '',
-    instructions: transaction.instructions.filter((instruction) => instruction.programId.toBase58() !== COMPUTE_BUDGET_PROGRAM).map((instruction) => ({
+function instructionSignatures(transaction: Transaction) {
+  return transaction.instructions
+    .filter((instruction) => instruction.programId.toBase58() !== COMPUTE_BUDGET_PROGRAM)
+    .map((instruction) => JSON.stringify({
       programId: instruction.programId.toBase58(),
       keys: instruction.keys.map((key) => key.pubkey.toBase58()),
       data: bs58.encode(instruction.data),
-    })),
-  };
+    }))
+    .sort();
+}
+function paymentMessage(transaction: Transaction) {
+  const message = { payer: transaction.feePayer?.toBase58() || '', instructions: instructionSignatures(transaction) };
   return new TextEncoder().encode(JSON.stringify(message));
 }
-async function preparedMessageHash(transaction: Transaction) { return `v3:${await sha256(paymentMessage(transaction))}`; }
+async function preparedMessageHash(transaction: Transaction) { return `v4:${await sha256(paymentMessage(transaction))}`; }
 async function matchesPreparedMessage(payment: PaymentIntent, attempt: Attempt, transaction: Transaction) {
+  if (transaction.feePayer?.toBase58() !== attempt.payer) return false;
   const expected = await buildTransaction(payment, attempt.payer, attempt.id, CANONICAL_BLOCKHASH);
-  return await sha256(paymentMessage(transaction)) === await sha256(paymentMessage(expected));
+  const expectedSigs = instructionSignatures(expected);
+  const actualSigs = instructionSignatures(transaction);
+  if (expectedSigs.length !== actualSigs.length) return false;
+  return expectedSigs.every((signature, index) => signature === actualSigs[index]);
 }
 function littleEndian(data: Uint8Array) {
   let value = 0n;

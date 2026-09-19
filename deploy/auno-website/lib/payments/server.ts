@@ -30,11 +30,12 @@ function logSplitEvent(network: NetworkId, event: string, details: Record<string
 function logSplitValidationFailure(network: NetworkId, reason: string, details: Record<string, unknown> = {}) { console.info(JSON.stringify({ event: "split_validation_failed", network, reason, ...details })); if (network === "mainnet-beta") console.info(JSON.stringify({ event: "mainnet_split_rejected", network, reason, ...details })); }
 function configuredOrigin() {
   const network = paymentNetwork();
-  const fallback = network === 'mainnet-beta' ? 'https://mainnet.auno.cash' : 'https://auno.cash';
+  const allowedHosts = network === 'mainnet-beta' ? ['auno.cash', 'mainnet.auno.cash'] : ['auno.cash', 'devnet.auno.cash', 'localhost'];
+  const fallback = network === 'mainnet-beta' ? 'https://auno.cash' : 'https://auno.cash';
   const configured = runtime().AUNO_PUBLIC_ORIGIN || fallback;
   try {
     const origin = new URL(configured);
-    if (origin.origin !== configured || origin.protocol !== 'https:' || origin.hostname !== new URL(fallback).hostname) throw new Error();
+    if (origin.origin !== configured || origin.protocol !== 'https:' || !allowedHosts.includes(origin.hostname)) throw new Error();
     return origin.origin;
   } catch { throw new PaymentError('Payment origin deployment setting is invalid.', 503); }
 }

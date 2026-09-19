@@ -11,16 +11,28 @@ case "$SOLANA_NETWORK" in
     : "${SOLANA_RPC_URL:=https://api.devnet.solana.com}"
     ;;
   mainnet-beta)
-    if [ "${AUNO_COOLIFY_MAINNET_STAGING:-}" != "true" ]; then
-      echo "Mainnet requires the isolated Coolify staging Compose deployment." >&2
+    if [ "${AUNO_COOLIFY_MAINNET_STAGING:-}" = "true" ] && [ "${AUNO_COOLIFY_MAINNET_PRODUCTION:-}" = "true" ]; then
+      echo "Set only one of AUNO_COOLIFY_MAINNET_STAGING or AUNO_COOLIFY_MAINNET_PRODUCTION." >&2
       exit 64
     fi
-    if [ "${AUNO_MAINNET_ENABLED:-false}" != "false" ]; then
+    if [ "${AUNO_COOLIFY_MAINNET_STAGING:-}" != "true" ] && [ "${AUNO_COOLIFY_MAINNET_PRODUCTION:-}" != "true" ]; then
+      echo "Mainnet requires either the Coolify staging or production Compose deployment." >&2
+      exit 64
+    fi
+    if [ "${AUNO_COOLIFY_MAINNET_STAGING:-}" = "true" ] && [ "${AUNO_MAINNET_ENABLED:-false}" != "false" ]; then
       echo "Coolify Mainnet staging cannot enable settlement." >&2
       exit 64
     fi
-    if [ "$AUNO_PUBLIC_ORIGIN" != "https://mainnet.auno.cash" ]; then
+    if [ "${AUNO_COOLIFY_MAINNET_PRODUCTION:-}" = "true" ] && [ "${AUNO_MAINNET_ENABLED:-false}" != "true" ]; then
+      echo "Coolify Mainnet production must set AUNO_MAINNET_ENABLED=true." >&2
+      exit 64
+    fi
+    if [ "${AUNO_COOLIFY_MAINNET_STAGING:-}" = "true" ] && [ "$AUNO_PUBLIC_ORIGIN" != "https://mainnet.auno.cash" ]; then
       echo "Coolify Mainnet staging must use https://mainnet.auno.cash." >&2
+      exit 64
+    fi
+    if [ "${AUNO_COOLIFY_MAINNET_PRODUCTION:-}" = "true" ] && [ "$AUNO_PUBLIC_ORIGIN" != "https://auno.cash" ]; then
+      echo "Coolify Mainnet production must use https://auno.cash." >&2
       exit 64
     fi
     : "${SOLANA_RPC_URL:?Set SOLANA_RPC_URL to a dedicated Solana Mainnet RPC endpoint}"
@@ -30,7 +42,7 @@ case "$SOLANA_NETWORK" in
       exit 64
     fi
     if [ "${AUNO_MAX_SOL_LAMPORTS:-100000000}" != "100000000" ]; then
-      echo "Coolify Mainnet staging must retain the 0.1 SOL maximum." >&2
+      echo "Coolify Mainnet must retain the 0.1 SOL maximum." >&2
       exit 64
     fi
     ;;

@@ -1,0 +1,55 @@
+# Coolify Mainnet Beta production deployment for https://auno.cash.
+# Settlement is enabled. The entrypoint enforces AUNO_COOLIFY_MAINNET_PRODUCTION=true and AUNO_MAINNET_ENABLED=true.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      SOLANA_NETWORK: mainnet-beta
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:?Set SOLANA_RPC_URL to a dedicated authenticated Solana Mainnet RPC endpoint}
+      AUNO_PUBLIC_ORIGIN: https://auno.cash
+      AUNO_COOLIFY_MAINNET_PRODUCTION: "true"
+      AUNO_MAINNET_ENABLED: "true"
+      AUNO_MAINNET_SPLITS_ENABLED: ${AUNO_MAINNET_SPLITS_ENABLED:-true}
+      AUNO_MAX_SOL_LAMPORTS: "100000000"
+      AUNO_VERIFIER_BATCH_SIZE: ${AUNO_VERIFIER_BATCH_SIZE:-25}
+      AUNO_VERIFIER_TOKEN: ${AUNO_VERIFIER_TOKEN:?Set AUNO_VERIFIER_TOKEN to a random server-only value of at least 32 characters}
+    expose:
+      - "3000"
+    volumes:
+      - auno-mainnet-production-d1:/app/.wrangler/state
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 45s
+
+  verifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    entrypoint:
+      - /usr/local/bin/auno-mainnet-verifier
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      SOLANA_NETWORK: mainnet-beta
+      AUNO_COOLIFY_MAINNET_PRODUCTION: "true"
+      AUNO_MAINNET_ENABLED: "true"
+      AUNO_APP_ORIGIN: http://web:3000
+      AUNO_VERIFIER_TOKEN: ${AUNO_VERIFIER_TOKEN:?Set AUNO_VERIFIER_TOKEN to a random server-only value of at least 32 characters}
+      AUNO_VERIFIER_POLL_MS: ${AUNO_VERIFIER_POLL_MS:-120000}
+
+volumes:
+  auno-mainnet-production-d1:

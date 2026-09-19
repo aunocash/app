@@ -1,7 +1,96 @@
 "use client";
-import { getWallets } from '@wallet-standard/app';
-import bs58 from 'bs58';
-export type WalletSession={address:string;name:string;signMessage:(text:string)=>Promise<string>;signTransaction:(base64:string)=>Promise<string>;disconnect:()=>Promise<void>};
-export type SolanaChain='solana:devnet'|'solana:mainnet';
-export function availableWallets(chain:SolanaChain='solana:devnet'){return getWallets().get().filter(w=>w.chains.includes(chain)&&w.features['standard:connect']&&w.features['solana:signMessage']&&w.features['solana:signTransaction']);}
-export async function connectWallet(name:string,chain:SolanaChain='solana:devnet'):Promise<WalletSession>{const wallet=availableWallets(chain).find(w=>w.name===name);if(!wallet)throw new Error('Install a Wallet Standard compatible Solana wallet, then reload.');const connect=wallet.features['standard:connect'] as {connect:()=>Promise<{accounts:readonly {address:string;chains:readonly string[];features:readonly string[]}[]}>};const result=await connect.connect();const account=result.accounts.find(a=>a.chains.includes(chain)&&a.features.includes('solana:signMessage')&&a.features.includes('solana:signTransaction'));if(!account)throw new Error(`This wallet account does not support ${chain} message and transaction signing.`);return {address:account.address,name:wallet.name,signMessage:async text=>{const feature=wallet.features['solana:signMessage'] as {signMessage:(input:unknown)=>Promise<{signature:Uint8Array}[]>};const [output]=await feature.signMessage({account,message:new TextEncoder().encode(text)});return bs58.encode(output.signature);},signTransaction:async base64=>{const feature=wallet.features['solana:signTransaction'] as {signTransaction:(input:unknown)=>Promise<{signedTransaction:Uint8Array}[]>};const [output]=await feature.signTransaction({account,chain,transaction:Uint8Array.from(atob(base64),c=>c.charCodeAt(0))});return btoa(String.fromCharCode(...output.signedTransaction));},disconnect:async()=>{const feature=wallet.features['standard:disconnect'] as {disconnect:()=>Promise<void>}|undefined;await feature?.disconnect();}};}
+
+import { getWallets } from "@wallet-standard/app";
+import bs58 from "bs58";
+
+export type SolanaChain = "solana:devnet" | "solana:mainnet";
+
+type WalletAccount = {
+  address: string;
+  chains: readonly string[];
+  features: readonly string[];
+};
+
+type StandardWallet = {
+  name: string;
+  chains: readonly string[];
+  accounts: readonly WalletAccount[];
+  features: Record<string, unknown>;
+};
+
+type ConnectFeature = {
+  connect: () => Promise<{ accounts: readonly WalletAccount[] }>;
+};
+
+const requiredFeatures = ["solana:signMessage", "solana:signTransaction"];
+
+export type WalletSession = {
+  address: string;
+  name: string;
+  chain: SolanaChain;
+  assertActive: () => void;
+  signMessage: (text: string) => Promise<string>;
+  signTransaction: (base64: string) => Promise<string>;
+  disconnect: () => Promise<void>;
+};
+
+function supportsAccount(account: WalletAccount, chain: SolanaChain) {
+  return account.chains.includes(chain) && requiredFeatures.every((feature) => account.features.includes(feature));
+}
+
+function walletsFor(chain: SolanaChain) {
+  return getWallets().get() as readonly StandardWallet[];
+}
+
+function walletFor(name: string, chain: SolanaChain) {
+  return walletsFor(chain).find((wallet) => wallet.name === name && wallet.chains.includes(chain) && wallet.features["solana:signMessage"] && wallet.features["solana:signTransaction"]);
+}
+
+function createSession(wallet: StandardWallet, account: WalletAccount, chain: SolanaChain): WalletSession {
+  function activeAccount() {
+    const current = wallet.accounts.find((candidate) => candidate.address === account.address && supportsAccount(candidate, chain));
+    if (!current) throw new Error("Wallet connection changed. Reconnect the same account before starting a new payment attempt.");
+    return current;
+  }
+
+  return {
+    address: account.address,
+    name: wallet.name,
+    chain,
+    assertActive: () => { activeAccount(); },
+    signMessage: async (text) => {
+      const feature = wallet.features["solana:signMessage"] as { signMessage: (input: unknown) => Promise<{ signature: Uint8Array }[]> };
+      const [output] = await feature.signMessage({ account: activeAccount(), message: new TextEncoder().encode(text) });
+      return bs58.encode(output.signature);
+    },
+    signTransaction: async (base64) => {
+      const feature = wallet.features["solana:signTransaction"] as { signTransaction: (input: unknown) => Promise<{ signedTransaction: Uint8Array }[]> };
+      const [output] = await feature.signTransaction({ account: activeAccount(), chain, transaction: Uint8Array.from(atob(base64), (character) => character.charCodeAt(0)) });
+      return btoa(String.fromCharCode(...output.signedTransaction));
+    },
+    disconnect: async () => {
+      const feature = wallet.features["standard:disconnect"] as { disconnect: () => Promise<void> } | undefined;
+      await feature?.disconnect();
+    },
+  };
+}
+
+export function availableWallets(chain: SolanaChain = "solana:devnet") {
+  return walletsFor(chain).filter((wallet) => wallet.chains.includes(chain) && wallet.features["standard:connect"] && wallet.features["solana:signMessage"] && wallet.features["solana:signTransaction"]);
+}
+
+export async function connectWallet(name: string, chain: SolanaChain = "solana:devnet"): Promise<WalletSession> {
+  const wallet = availableWallets(chain).find((candidate) => candidate.name === name);
+  if (!wallet) throw new Error("Install a Wallet Standard compatible Solana wallet, then reload.");
+  const result = await (wallet.features["standard:connect"] as ConnectFeature).connect();
+  const account = result.accounts.find((candidate) => supportsAccount(candidate, chain));
+  if (!account) throw new Error(`This wallet account does not support ${chain} message and transaction signing.`);
+  return createSession(wallet, account, chain);
+}
+
+export function restoreWallet(name: string, address: string, chain: SolanaChain): WalletSession | null {
+  const wallet = walletFor(name, chain);
+  if (!wallet) return null;
+  const account = wallet.accounts.find((candidate) => candidate.address === address && supportsAccount(candidate, chain));
+  return account ? createSession(wallet, account, chain) : null;
+}

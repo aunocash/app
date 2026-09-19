@@ -291,8 +291,8 @@ export function Checkout({ id, initialPayment = null, embedded = false, onBack }
       toast.loading("Awaiting wallet signature…", { id: notification });
 setState("Submitting to Solana…");
       toast.loading("Submitting to Solana…", { id: notification });
-      const signedTransaction = wallet.signTransaction ? await wallet.signTransaction(prepared.transaction) : undefined;
-      const walletSignature = signedTransaction ? undefined : await wallet.signAndSendTransaction?.(prepared.transaction);
+      const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSendTransaction(prepared.transaction) : undefined;
+      const signedTransaction = walletSignature ? undefined : await wallet.signTransaction?.(prepared.transaction);
       if (!signedTransaction && !walletSignature) throw new Error("This wallet cannot sign the prepared transaction.");
       const result = await api<{ signature: string; message?: string }>(`/api/payments/${id}/submissions`, signedTransaction
         ? { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: signedTransaction }

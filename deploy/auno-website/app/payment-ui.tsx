@@ -503,8 +503,8 @@ export function SplitCalculator({ network = "devnet" }: { network?: NetworkId } 
       const prepared = await api<{ transaction: string; attemptId: string; attemptToken: string }>(`/api/payments/${payment.id}/prepare`, { payer: wallet.address });
       toast.loading("Approve one transaction in your wallet…", { id: notification });
       wallet.assertActive();
-const signedTransaction = wallet.signTransaction ? await wallet.signTransaction(prepared.transaction) : undefined;
-      const walletSignature = signedTransaction ? undefined : await wallet.signAndSendTransaction?.(prepared.transaction);
+const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSendTransaction(prepared.transaction) : undefined;
+      const signedTransaction = walletSignature ? undefined : await wallet.signTransaction?.(prepared.transaction);
       if (!signedTransaction && !walletSignature) throw new Error("This wallet cannot sign the prepared transaction.");
       const submitted = await api<{ signature: string; status: string; message?: string }>(`/api/payments/${payment.id}/submissions`, signedTransaction
         ? { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: signedTransaction }

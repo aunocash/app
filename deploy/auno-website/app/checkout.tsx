@@ -281,10 +281,14 @@ export function Checkout({ id, initialPayment = null, embedded = false, onBack }
       setAttempt({ id: prepared.attemptId, token: prepared.attemptToken });
       setState("Awaiting Signature");
       toast.loading("Awaiting wallet signature…", { id: notification });
-      const signed = await wallet.signTransaction(prepared.transaction);
-      setState("Submitting to Solana…");
+setState("Submitting to Solana…");
       toast.loading("Submitting to Solana…", { id: notification });
-      const result = await api<{ signature: string; message?: string }>(`/api/payments/${id}/submissions`, { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: signed });
+      const walletSignature = wallet.signAndSendTransaction
+        ? await wallet.signAndSendTransaction(prepared.transaction)
+        : undefined;
+      const result = await api<{ signature: string; message?: string }>(`/api/payments/${id}/submissions`, walletSignature
+        ? { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, signature: walletSignature }
+        : { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: await wallet.signTransaction(prepared.transaction) });
       setSignature(result.signature);
       if (result.message) {
         setState("Submission needs confirmation");

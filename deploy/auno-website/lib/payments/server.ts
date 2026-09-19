@@ -234,6 +234,14 @@ function decodeSignedPaymentTransaction(encoded: string): SignedPaymentTransacti
     throw new PaymentError('Wallet returned an invalid signed transaction.', 422);
   }
 }
+function walletBroadcastSignature(value: unknown) {
+  try {
+    if (typeof value !== 'string' || value.length > 128 || bs58.decode(value).length !== 64) throw new Error();
+    return value;
+  } catch {
+    throw new PaymentError('Wallet returned an invalid transaction signature.', 422);
+  }
+}
 function attemptToken() {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -423,16 +431,32 @@ export async function preparePayment(req: Request, id: string) {
 export async function submitPayment(req: Request, id: string) {
   sameOrigin(req);
   assertSettlementEnabled();
-  const body = await jsonBody(req);
-  if (typeof body.transaction !== 'string' || body.transaction.length > 8_000) throw new PaymentError('Invalid signed transaction.');
+const body = await jsonBody(req);
+  const hasSignedTransaction = typeof body.transaction === 'string' && body.transaction.length <= 8_000;
+  const hasWalletSignature = typeof body.signature === 'string';
+  if (hasSignedTransaction === hasWalletSignature) throw new PaymentError('Submit either a signed transaction or a wallet-broadcast signature.');
   const attempt = await getAttempt(id, body.attemptId, body.attemptToken);
   const payment = await getPayment(id);
   assertSettlementEnabled(payment);
   if (payment.status !== 'ACTIVE') throw new PaymentError('This payment is no longer available.', 409);
   if (attempt.status !== 'PREPARED') throw new PaymentError('This attempt is no longer ready for submission.', 409);
+if (hasWalletSignature) {
+    const signature = walletBroadcastSignature(body.signature);
+    const c = connection();
+    await assertNetwork(c);
+    if (await c.getBlockHeight('confirmed') > attempt.last_valid_block_height) {
+      await db().prepare("UPDATE payment_attempts SET status='EXPIRED',updated_at=? WHERE id=? AND status='PREPARED'").bind(Date.now(), attempt.id).run();
+      throw new PaymentError('This prepared transaction has expired. Start a fresh attempt.', 409);
+    }
+    const claim = await db().prepare("UPDATE payment_attempts SET signature=?,status='SUBMITTED',updated_at=? WHERE id=? AND status='PREPARED'").bind(signature, Date.now(), attempt.id).run();
+    if (!claim.meta.changes) throw new PaymentError('This attempt has already been submitted.', 409);
+    logEvent('payment_submitted', { paymentId: id, attemptId: attempt.id, signature, recipientCount: payment.recipients.length, split: isSplitPayment(payment), relay: 'wallet' });
+    logSplitEvent(payment.network, 'submitted', { paymentId: id, attemptId: attempt.id, signature, recipientCount: payment.recipients.length, split: isSplitPayment(payment), relay: 'wallet' });
+    return { attemptId: attempt.id, signature, status: 'SUBMITTED' };
+  }
   let signed: SignedPaymentTransaction;
   try {
-    signed = decodeSignedPaymentTransaction(body.transaction);
+    signed = decodeSignedPaymentTransaction(body.transaction as string);
     if (!await matchesPreparedMessage(payment, attempt, signed.transaction)) throw new Error();
     validateComputeBudget(signed.transaction);
   } catch (error) {

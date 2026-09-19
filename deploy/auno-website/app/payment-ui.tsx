@@ -503,12 +503,12 @@ export function SplitCalculator({ network = "devnet" }: { network?: NetworkId } 
       const prepared = await api<{ transaction: string; attemptId: string; attemptToken: string }>(`/api/payments/${payment.id}/prepare`, { payer: wallet.address });
       toast.loading("Approve one transaction in your wallet…", { id: notification });
       wallet.assertActive();
-const walletSignature = wallet.signAndSendTransaction
-        ? await wallet.signAndSendTransaction(prepared.transaction)
-        : undefined;
-      const submitted = await api<{ signature: string; status: string; message?: string }>(`/api/payments/${payment.id}/submissions`, walletSignature
-        ? { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, signature: walletSignature }
-        : { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: await wallet.signTransaction(prepared.transaction) });
+const signedTransaction = wallet.signTransaction ? await wallet.signTransaction(prepared.transaction) : undefined;
+      const walletSignature = signedTransaction ? undefined : await wallet.signAndSendTransaction?.(prepared.transaction);
+      if (!signedTransaction && !walletSignature) throw new Error("This wallet cannot sign the prepared transaction.");
+      const submitted = await api<{ signature: string; status: string; message?: string }>(`/api/payments/${payment.id}/submissions`, signedTransaction
+        ? { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, transaction: signedTransaction }
+        : { attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, signature: walletSignature });
       setSettlement({ paymentId: payment.id, attemptId: prepared.attemptId, attemptToken: prepared.attemptToken, ...submitted, relayMessage: submitted.message });
       if (submitted.message) toast.error("Solana has not accepted the split yet.", { id: notification, description: submitted.message, duration: 6_000 });
       else toast.success("Split transaction submitted. Finalization is now being checked.", { id: notification });

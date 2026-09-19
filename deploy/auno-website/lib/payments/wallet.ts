@@ -32,7 +32,7 @@ export type WalletSession = {
   assertActive: () => void;
   signMessage: (text: string) => Promise<string>;
   signAndSendTransaction?: (base64: string) => Promise<string>;
-  signTransaction: (base64: string) => Promise<string>;
+  signTransaction?: (base64: string) => Promise<string>;
   disconnect: () => Promise<void>;
 };
 
@@ -122,12 +122,12 @@ function createSession(wallet: StandardWallet, account: WalletAccount, chain: So
       if (!output?.signature) throw new Error("Wallet did not return a transaction signature.");
       return bs58.encode(output.signature);
     } : undefined,
-    signTransaction: async (base64) => {
+    signTransaction: wallet.features["solana:signTransaction"] ? async (base64) => {
       const { wallet: currentWallet, account: currentAccount } = activeContext();
       const feature = currentWallet.features["solana:signTransaction"] as { signTransaction: (input: unknown) => Promise<{ signedTransaction: Uint8Array }[]> };
       const [output] = await feature.signTransaction({ account: currentAccount, chain, transaction: Uint8Array.from(atob(base64), (character) => character.charCodeAt(0)) });
       return btoa(String.fromCharCode(...output.signedTransaction));
-    },
+    } : undefined,
     disconnect: async () => {
       const currentWallet = walletFor(wallet.name, chain);
       const feature = currentWallet?.features["standard:disconnect"] as { disconnect: () => Promise<void> } | undefined;

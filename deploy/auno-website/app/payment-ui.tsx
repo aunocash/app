@@ -25,7 +25,7 @@ import {
   type PaymentIntent,
   type SplitRecipient,
 } from "@/lib/payments/model";
-import { availableWallets, connectWallet, type WalletSession } from "@/lib/payments/wallet";
+import { availableWallets, clearWalletSession, connectWallet, saveWalletSession, type WalletSession } from "@/lib/payments/wallet";
 
 const EmbeddedCheckout = lazy(async () => {
   const module = await import("./checkout");
@@ -111,7 +111,9 @@ function WalletButton({ session, onChange }: { session: WalletSession | null; on
     setBusy(true);
     const notification = toast.loading(`Connecting ${name}…`);
     try {
-      onChange(await connectWallet(name, walletChain()));
+      const nextWallet = await connectWallet(name, walletChain());
+      saveWalletSession(nextWallet);
+      onChange(nextWallet);
       setOpen(false);
       toast.success(`${name} connected.`, { id: notification });
     } catch (error) {
@@ -127,6 +129,7 @@ function WalletButton({ session, onChange }: { session: WalletSession | null; on
     const notification = toast.loading("Disconnecting wallet…");
     try {
       await session.disconnect();
+      clearWalletSession();
       onChange(null);
       toast.success("Wallet disconnected.", { id: notification });
     } catch (error) {

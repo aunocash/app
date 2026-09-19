@@ -34,6 +34,46 @@ export type WalletSession = {
   disconnect: () => Promise<void>;
 };
 
+export type SavedWalletSession = {
+  name: string;
+  address: string;
+  chain: SolanaChain;
+};
+
+const walletSessionKey = "auno:wallet-session:v1";
+
+export function readWalletSession(): SavedWalletSession | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value: unknown = JSON.parse(window.sessionStorage.getItem(walletSessionKey) || "null");
+    if (!value || typeof value !== "object") return null;
+    const record = value as { name?: unknown; address?: unknown; chain?: unknown };
+    if (typeof record.name !== "string" || typeof record.address !== "string") return null;
+    if (record.chain !== "solana:devnet" && record.chain !== "solana:mainnet") return null;
+    return { name: record.name, address: record.address, chain: record.chain };
+  } catch {
+    return null;
+  }
+}
+
+export function saveWalletSession(wallet: WalletSession) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(walletSessionKey, JSON.stringify({ name: wallet.name, address: wallet.address, chain: wallet.chain }));
+  } catch {
+    // Private browsing must not interrupt checkout.
+  }
+}
+
+export function clearWalletSession() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(walletSessionKey);
+  } catch {
+    // Ignore unavailable session storage.
+  }
+}
+
 function supportsAccount(account: WalletAccount, chain: SolanaChain) {
   return account.chains.includes(chain) && requiredFeatures.every((feature) => account.features.includes(feature));
 }

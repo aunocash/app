@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const root = new URL('..', import.meta.url);
 const checkout = await readFile(new URL('app/checkout.tsx', root), 'utf8');
+const paymentUi = await readFile(new URL('app/payment-ui.tsx', root), 'utf8');
 const page = await readFile(new URL('app/pay/[id]/page.tsx', root), 'utf8');
 
 assert.doesNotMatch(page, /payments\/server/);
@@ -14,9 +15,11 @@ assert.match(checkout, /onBack/);
 assert.match(checkout, /readCheckoutProgress/);
 assert.match(checkout, /writeCheckoutProgress/);
 assert.match(checkout, /readWalletSession/);
-assert.match(checkout, /writeWalletSession/);
+assert.match(checkout, /saveWalletSession/);
 assert.match(checkout, /restoreWallet\(saved\.name, saved\.address, saved\.chain\)/);
 assert.match(checkout, /wallet\.assertActive\(\)/);
+assert.match(paymentUi, /saveWalletSession/);
+assert.match(paymentUi, /clearWalletSession/);
 assert.match(checkout, /sessionStorage/);
 assert.doesNotMatch(checkout, /localStorage/);
 assert.match(checkout, /await import\(\"@\/lib\/payments\/wallet\"\)/);

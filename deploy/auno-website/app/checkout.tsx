@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Footer, Nav } from "./ui";
 import { NETWORKS, explorer, networkForOrigin, type PaymentIntent } from "@/lib/payments/model";
-import type { SolanaChain, WalletSession } from "@/lib/payments/wallet";
+import { clearWalletSession, readWalletSession, saveWalletSession, type WalletSession } from "@/lib/payments/wallet";
 
 export type CheckoutPayment = Omit<PaymentIntent, "merchantWallet" | "updatedAt">;
 
@@ -82,45 +82,6 @@ function clearCheckoutProgress(id: string) {
   }
 }
 
-type SavedWalletSession = {
-  name: string;
-  address: string;
-  chain: SolanaChain;
-};
-
-const walletSessionKey = "auno:wallet-session:v1";
-
-function readWalletSession(): SavedWalletSession | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const value: unknown = JSON.parse(window.sessionStorage.getItem(walletSessionKey) || "null");
-    if (!value || typeof value !== "object") return null;
-    const record = value as { name?: unknown; address?: unknown; chain?: unknown };
-    if (typeof record.name !== "string" || typeof record.address !== "string") return null;
-    if (record.chain !== "solana:devnet" && record.chain !== "solana:mainnet") return null;
-    return { name: record.name, address: record.address, chain: record.chain };
-  } catch {
-    return null;
-  }
-}
-
-function writeWalletSession(wallet: WalletSession) {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(walletSessionKey, JSON.stringify({ name: wallet.name, address: wallet.address, chain: wallet.chain }));
-  } catch {
-    // Private browsing must not interrupt checkout.
-  }
-}
-
-function clearWalletSession() {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.removeItem(walletSessionKey);
-  } catch {
-    // Ignore unavailable session storage.
-  }
-}
 
 function WalletButton({ session, onChange }: { session: WalletSession | null; onChange: (session: WalletSession | null) => void }) {
   const [names, setNames] = useState<string[]>([]);
@@ -296,7 +257,7 @@ export function Checkout({ id, initialPayment = null, embedded = false, onBack }
 
   function changeWallet(nextWallet: WalletSession | null) {
     setWallet(nextWallet);
-    if (nextWallet) writeWalletSession(nextWallet);
+    if (nextWallet) saveWalletSession(nextWallet);
     else clearWalletSession();
   }
 

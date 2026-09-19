@@ -7,7 +7,7 @@ import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Footer, Nav } from "./ui";
+import { DevnetOnlyRibbon, Footer, Nav } from "./ui";
 import {
   ASSETS,
   NETWORKS,
@@ -300,6 +300,7 @@ export function CreatePayment() {
         <aside>
           <div className="panel"><div className="eyebrow">CHECKOUT PREVIEW</div><h2>{title || "Your payment title"}</h2><p>{description || "Payment description appears here."}</p><div className="amount">{amount || "0.00"}<span>{asset}</span></div><div className="receipt-details"><div><span>Recipient</span><strong>{recipient || "Not selected"}</strong></div><div><span>Network</span><strong>{NETWORKS[network].label}</strong></div><div><span>Settlement</span><strong>Direct to recipient</strong></div></div></div>
           <div className="notice">{mainnet ? "Allowlisted Mainnet Beta · SOL only · 0.1 SOL maximum. Never enter a seed phrase or private key." : "Use test assets only. SOL and USDC signing flows are implemented but have not passed real wallet end-to-end acceptance testing. Never enter a seed phrase or private key."}</div>
+          {mainnet && <DevnetOnlyRibbon features="USDC and split payments" />}
           {!mainnet && <a className="text-link" href="/docs#getting-started">How to get devnet test assets <FiArrowRight className="inline-icon action-icon" aria-hidden="true" /></a>}
         </aside>
       </div>

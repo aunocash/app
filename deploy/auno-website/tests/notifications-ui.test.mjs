@@ -45,6 +45,8 @@ for (const message of [
 }
 
 assert.match(paymentUi, /toast\.error\(error/);
+assert.match(productUi, /Available on Devnet only\./);
+assert.match(productUi, /Open Devnet/);
 assert.match(routeError, /toast\.error/);
 assert.match(globalError, /toast\.error/);
 assert.doesNotMatch(routeError, /error\.message/);

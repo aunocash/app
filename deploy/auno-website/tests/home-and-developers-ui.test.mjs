@@ -46,4 +46,6 @@ assert.match(siteNetwork, /mainnet\.auno\.cash/);
 assert.match(homePage, /isMainnetRequest\(\).*?<MainnetHome/s);
 assert.match(paymentUi, /AUNO Mainnet Payment/);
 assert.match(paymentUi, /Mainnet Beta payment link/);
+assert.match(paymentUi, /DevnetOnlyRibbon features="USDC and split payments"/);
+assert.match(mainnetSite, /DevnetOnlyRibbon features="USDC and split payments"/);
 assert.match(splitPage, /isMainnetRequest\(\).*?<MainnetInfoPage page="split"/s);

@@ -81,6 +81,20 @@ export function Footer({ network }: { network?: SiteNetwork }) {
   return <footer><div><Brand /><p>Programmable Payments on Solana.</p><div className="contract-address"><span>CA</span><code title={CONTRACT_ADDRESS}>{CONTRACT_ADDRESS}</code><button type="button" onClick={copyContractAddress} aria-label="Copy AUNO contract address"><FiCopy aria-hidden="true" /></button></div></div><div><a href="/#product">Product</a><a href="/developers">Developers</a><a href="/docs">Documentation</a><a href="/whitepaper">Whitepaper</a><a href="/roadmap">Roadmap</a><a className="social-link footer-social-link" href="https://x.com/aunocash" target="_blank" rel="noreferrer" aria-label="Follow AUNO on X"><FaXTwitter aria-hidden="true" /></a></div><div className="footer-bottom"><span>© 2026 AUNO</span><span>Value in motion.</span><span>{mainnet ? "Mainnet Beta" : "Designed for auno.cash"}</span></div></footer>;
 }
 
+export function DevnetOnlyRibbon({ features }: { features: string }) {
+  function showAvailability() {
+    toast.info("Available on Devnet only.", {
+      description: `${features} are not released on Mainnet Beta. Use auno.cash for Devnet testing.`,
+      action: {
+        label: "Open Devnet",
+        onClick: () => window.location.assign("https://auno.cash"),
+      },
+    });
+  }
+
+  return <button type="button" className="devnet-only-ribbon" onClick={showAvailability} aria-label={`${features} are available on Devnet only. Show details.`}><FiLock aria-hidden="true" /><span>DEVNET ONLY</span><strong>{features}</strong></button>;
+}
+
 export function Flow() {
   return <div className="flow" aria-hidden="true"><div className="wash w1" /><div className="wash w2" /><svg viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="line"><stop stopColor="#fd6c03" stopOpacity="0" /><stop offset=".48" stopColor="#fd6c03" stopOpacity=".5" /><stop offset="1" stopColor="#fd6c03" stopOpacity="0" /></linearGradient><path id="flow-a" d="M-100 640C220 610 340 95 620 240S950 600 1320 100" /><path id="flow-b" d="M-100 690C240 580 300 100 640 280S1000 480 1330 200" /><path id="flow-c" d="M620 240C900 370 920 650 1300 600" /></defs><g fill="none" stroke="url(#line)"><use href="#flow-a" /><use href="#flow-b" /><use href="#flow-c" /></g>{["flow-a", "flow-b", "flow-c"].map((path, index) => <circle key={path} r="3.5" fill="#fd6c03"><animateMotion dur={`${12 + index * 4}s`} repeatCount="indefinite"><mpath href={`#${path}`} /></animateMotion></circle>)}</svg></div>;
 }

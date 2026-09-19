@@ -3759,3 +3759,52 @@ td,
     display: none;
   }
 }
+
+.devnet-only-ribbon {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  width: fit-content;
+  margin: 16px 0 4px;
+  padding: 8px 12px;
+  border: 1px solid #70472c;
+  border-radius: 999px;
+  background: #21170f;
+  color: #ffb27d;
+  box-shadow: inset 0 0 0 1px rgba(253, 108, 3, .06);
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: left;
+  transition: border-color .2s ease, background-color .2s ease, transform .2s ease;
+}
+
+.devnet-only-ribbon:hover {
+  border-color: #fd6c03;
+  background: #2a1b10;
+  transform: translateY(-1px);
+}
+
+.devnet-only-ribbon svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.devnet-only-ribbon span {
+  padding-right: 9px;
+  border-right: 1px solid #70472c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+
+.devnet-only-ribbon strong {
+  color: #f3d4bd;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .devnet-only-ribbon:hover {
+    transform: none;
+  }
+}

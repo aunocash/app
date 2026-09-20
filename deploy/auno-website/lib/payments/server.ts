@@ -86,7 +86,7 @@ export function address(input: unknown): string {
     return key.toBase58();
   } catch { throw new PaymentError('Enter a valid on-curve Solana wallet address.'); }
 }
-function verifySignature(wallet: string, message: string, signature: string) {
+export function verifyWalletSignature(wallet: string, message: string, signature: string) {
   try { if (!nacl.sign.detached.verify(new TextEncoder().encode(message), bs58.decode(signature), new PublicKey(wallet).toBytes())) throw new Error(); }
   catch { throw new PaymentError('Wallet signature could not be verified.', 401); }
 }
@@ -309,7 +309,7 @@ export async function createPayment(req: Request) {
   let input: Record<string, unknown>;
   try { input = JSON.parse(body.payload) as Record<string, unknown>; } catch { throw new PaymentError('Invalid payment request.'); }
   const merchant = address(input.merchantWallet);
-  verifySignature(merchant, creationMessage(body.payload, network), body.signature);
+  verifyWalletSignature(merchant, creationMessage(body.payload, network), body.signature);
   const existing = await db().prepare('SELECT id FROM payments WHERE creation_key=?').bind(body.signature).first<{ id: string }>();
   if (existing) return getPayment(existing.id);
   if (input.origin !== origin || !Number.isSafeInteger(input.timestamp) || Math.abs(Date.now() - Number(input.timestamp)) > 300_000) throw new PaymentError('Request expired. Sign a fresh request.');
@@ -348,7 +348,7 @@ export async function listPayments(req: Request) {
   const wallet = address(new URL(req.url).searchParams.get('wallet'));
   const stamp = Number(req.headers.get('x-auno-timestamp'));
   if (!Number.isSafeInteger(stamp) || Math.abs(Date.now() - stamp) > 300_000) throw new PaymentError('Connect and authorize payment history again.', 401);
-  verifySignature(wallet, historyMessage(wallet, stamp, publicOrigin(req), paymentNetwork()), req.headers.get('x-auno-signature') || '');
+  verifyWalletSignature(wallet, historyMessage(wallet, stamp, publicOrigin(req), paymentNetwork()), req.headers.get('x-auno-signature') || '');
   const rows = await db().prepare('SELECT * FROM payments WHERE merchant_wallet=? AND network=? ORDER BY created_at DESC LIMIT 200').bind(wallet, paymentNetwork()).all<Record<string, unknown>>();
   return { payments: rows.results.map(deserialize) };
 }
@@ -607,7 +607,7 @@ async function verifyAttempt(payment: PaymentIntent, attempt: Attempt) {
     throw error;
   }
   const paid = await db().prepare("UPDATE payments SET status='PAID',transaction_signature=?,payer=?,paid_at=?,updated_at=? WHERE id=? AND status='ACTIVE'").bind(attempt.signature, attempt.payer, parsed.blockTime * 1_000, Date.now(), payment.id).run();
-  if (paid.meta.changes) await db().prepare("UPDATE payment_attempts SET status='VERIFIED',updated_at=? WHERE id=?").bind(Date.now(), attempt.id).run();
+  if (paid.meta.changes) await db().prepare("UPDATE payment_attempts SET status='VERIFIED',updated_at=? WHERE id=?").bind(Date.now(), attempt.id).run(); if (paid.meta.changes) { const linked = await db().prepare("SELECT invoice_id FROM payments WHERE id=?").bind(payment.id).first<{ invoice_id: string | null }>(); if (linked?.invoice_id) await db().prepare("UPDATE invoices SET status='PAID',paid_at=?,paid_payment_id=?,updated_at=? WHERE id=? AND status='UNPAID'").bind(parsed.blockTime * 1000, payment.id, Date.now(), linked.invoice_id).run(); }
   if (paid.meta.changes) {
     logEvent('payment_verified', { paymentId: payment.id, attemptId: attempt.id, signature: attempt.signature, recipientCount: payment.recipients.length, split: isSplitPayment(payment), commitment: 'finalized' });
     logSplitEvent(payment.network, 'verified', { paymentId: payment.id, attemptId: attempt.id, signature: attempt.signature, recipientCount: payment.recipients.length, split: isSplitPayment(payment), commitment: 'finalized' });

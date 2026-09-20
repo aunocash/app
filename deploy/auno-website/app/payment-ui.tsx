@@ -2,7 +2,7 @@
 
 import { WalletIcon } from "@web3icons/react/dynamic";
 import { Wallet } from "lucide-react";
-import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiCopy, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers, FiX } from "react-icons/fi";
+import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiCopy, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiFileText, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers, FiX } from "react-icons/fi";
 import { usePathname } from "next/navigation";
 import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -77,7 +77,7 @@ function walletChain(): "solana:devnet" | "solana:mainnet" {
   return browserNetwork() === "mainnet-beta" ? "solana:mainnet" : "solana:devnet";
 }
 
-function WalletButton({ session, onChange }: { session: WalletSession | null; onChange: (session: WalletSession | null) => void }) {
+export function WalletButton({ session, onChange }: { session: WalletSession | null; onChange: (session: WalletSession | null) => void }) {
   const [names, setNames] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -175,6 +175,7 @@ export function AppShell({ children, title, subtitle }: { children: React.ReactN
   const tabs = [
     { href: "/dashboard/create", label: "Create Payment", icon: FiPlusCircle },
     { href: "/dashboard/payments", label: "Payment History", icon: FiClock },
+    { href: "/dashboard/invoices", label: "Invoices", icon: FiFileText },
     ...(network === "devnet" || mainnetSplits ? [{ href: "/split", label: "Split Payment", icon: FiGitBranch }] : []),
     { href: "/docs", label: "Help", icon: FiHelpCircle },
   ];

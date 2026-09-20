@@ -1,7 +1,8 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- Full document navigation resets payment wallet state. */
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
+import { useSiteNetwork } from './network-context';
 import type { IconType } from "react-icons";
 import {
   FiArrowDown,
@@ -29,15 +30,11 @@ import { SplitFlow } from "./split-flow";
 const ActionArrow = () => <FiArrowRight className="inline-icon action-icon" aria-hidden="true" />;
 const LaunchIcon = () => <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" />;
 const CONTRACT_ADDRESS = "52YLW3zzqzViDnZ421Vu17YyTv8TyMfxjUqZ8AYqpump";
-const isMainnetSite = () => typeof window !== "undefined" && window.location.hostname === "mainnet.auno.cash";
 type SiteNetwork = "devnet" | "mainnet";
 
 function useMainnetSite(network?: SiteNetwork) {
-  return useSyncExternalStore(
-    () => () => undefined,
-    () => network === "mainnet" || isMainnetSite(),
-    () => network === "mainnet",
-  );
+  const configured = useSiteNetwork();
+  return network ? network === 'mainnet' : configured === 'mainnet-beta';
 }
 
 export function useMainnetSplitsCapability(mainnet: boolean) {

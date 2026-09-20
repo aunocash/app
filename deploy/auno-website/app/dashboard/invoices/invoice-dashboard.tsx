@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { FiArrowRight, FiPlus } from "react-icons/fi";
 import { toast } from "sonner";
 import { AppShell, WalletButton } from "../../payment-ui";
-import { networkForOrigin, type NetworkId } from "@/lib/payments/model";
+import type { NetworkId } from "@/lib/payments/model";
+import { useSiteNetwork } from '../../network-context';
 import { readWalletSession, restoreWallet, type WalletSession } from "@/lib/payments/wallet";
 import type { InvoiceRecord } from "@/lib/invoices/types";
 
@@ -15,7 +16,7 @@ export default function InvoiceDashboard() {
   const [wallet, setWallet] = useState<WalletSession | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const network = networkForOrigin(typeof window === "undefined" ? "https://auno.cash" : window.location.origin);
+  const network = useSiteNetwork();
 
   useEffect(() => {
     const saved = readWalletSession();

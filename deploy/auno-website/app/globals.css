@@ -4074,6 +4074,17 @@ td,
 .invoice-public-items > div { display: flex; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); }
 .invoice-public-items > div:last-child { border-bottom: 0; }
 .invoice-public-items small { display: block; margin-top: 5px; color: var(--muted); }
+.repeat-notice { display: block; margin-bottom: 24px; }
+.repeat-notice p { margin: 8px 0; }
+.record-table small { display: block; margin: 7px 0; color: var(--muted); font-size: 14px; }
+.record-table summary { cursor: pointer; margin-top: 10px; font-size: 14px; }
+.record-table td { vertical-align: top; }
+.record-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
+.record-recipients { list-style: none; padding: 0; margin: 12px 0 0; }
+.record-recipients li { display: grid; gap: 4px; margin-bottom: 14px; font-size: 14px; }
+.record-recipients code { overflow-wrap: anywhere; white-space: normal; max-width: 300px; }
+.record-table { min-width: 720px; }
+.history-tools { flex-wrap: wrap; }
 .invoice-public-total { display: flex; justify-content: space-between; padding: 22px 0; font-size: 21px; font-weight: 700; }
 .invoice-pay-controls { justify-content: flex-start; margin: 12px 0; }
 .invoice-pay-controls select { width: min(220px, 100%); }
@@ -4099,3 +4110,9 @@ td,
   .invoice-actions, .invoice-pay-controls { align-items: stretch; flex-direction: column; }
   .invoice-actions .button, .invoice-pay-controls .wallet-control, .invoice-pay-controls select { width: 100%; }
 }
+.repeat-splits-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); gap:20px; margin-top:24px; }
+.repeat-split-card { min-width:0; overflow-wrap:anywhere; }
+.repeat-split-card .record-actions { margin-top:20px; flex-wrap:wrap; }
+.repeat-split-save { display:grid; gap:14px; border-top:1px solid var(--border); padding-top:24px; margin-top:24px; }
+.repeat-split-save label { display:grid; gap:8px; }
+.repeat-split-save input,.repeat-split-save textarea { width:100%; min-width:0; }

@@ -5,6 +5,7 @@ import bs58 from 'bs58';
 import nacl from 'tweetnacl';
 import { ASSETS, NETWORKS, MEMO_PROGRAM, allocate, creationMessage, displayUnits, explorer, historyMessage, toBaseUnits, usdcMint, validateRecipients, type Asset, type NetworkId, type PaymentIntent, type Recipient, type SplitRecipient } from './model';
 import { paymentPolicy } from './policy';
+import { repeatSplitMessage, validateRepeatSplit } from './repeat-splits';
 
 export class PaymentError extends Error { constructor(message: string, public status = 400) { super(message); } }
 type Runtime = Record<string, unknown> & { DB?: D1Database; SOLANA_RPC_URL?: string; SOLANA_NETWORK?: string; AUNO_PUBLIC_ORIGIN?: string; AUNO_TRUSTED_CLIENT_HEADER?: string; AUNO_MAINNET_ENABLED?: string; AUNO_MAINNET_SPLITS_ENABLED?: string; AUNO_MAINNET_USDC_ENABLED?: string; AUNO_DEVNET_SPLITS_ENABLED?: string; AUNO_MAX_SOL_LAMPORTS?: string; AUNO_MAX_USDC_BASE_UNITS?: string; AUNO_VERIFIER_BATCH_SIZE?: string; AUNO_VERIFIER_TOKEN?: string };
@@ -265,11 +266,11 @@ function deserialize(row: Record<string, unknown>): PaymentIntent {
     amountBaseUnits: String(recipient.amountBaseUnits),
   }));
   const network = row.network === 'mainnet-beta' ? 'mainnet-beta' : 'devnet';
-  return { id: row.id as string, network, merchantWallet: row.merchant_wallet as string, title: row.title as string, description: row.description as string, asset: row.asset as Asset, amount: row.amount as string, amountBaseUnits: row.amount_base_units as string, recipients, reference: row.reference as string, expiresAt: row.expires_at as number, status: row.status as PaymentIntent['status'], transactionSignature: row.transaction_signature as string | null, payer: row.payer as string | null, createdAt: row.created_at as number, updatedAt: row.updated_at as number, paidAt: row.paid_at as number | null };
+  return { repeatSplitId: row.repeat_split_id as string | null, repeatSplitName: row.repeat_split_name as string | null, id: row.id as string, network, merchantWallet: row.merchant_wallet as string, title: row.title as string, description: row.description as string, asset: row.asset as Asset, amount: row.amount as string, amountBaseUnits: row.amount_base_units as string, recipients, reference: row.reference as string, expiresAt: row.expires_at as number, status: row.status as PaymentIntent['status'], transactionSignature: row.transaction_signature as string | null, payer: row.payer as string | null, createdAt: row.created_at as number, updatedAt: row.updated_at as number, paidAt: row.paid_at as number | null };
 }
 export function checkoutPayment(payment: PaymentIntent) {
   const verification = payment.status === 'PAID' && payment.transactionSignature ? { verified: true as const, commitment: 'finalized' as const, signature: payment.transactionSignature, explorerUrl: explorer(payment.transactionSignature, payment.network), verifiedAt: payment.paidAt } : null;
-  return { id: payment.id, network: payment.network, title: payment.title, description: payment.description, asset: payment.asset, amount: payment.amount, amountBaseUnits: payment.amountBaseUnits, recipients: payment.recipients, reference: payment.reference, expiresAt: payment.expiresAt, status: payment.status, transactionSignature: payment.transactionSignature, payer: payment.payer, createdAt: payment.createdAt, paidAt: payment.paidAt, verification };
+  return { repeatSplitId: payment.repeatSplitId, repeatSplitName: payment.repeatSplitName, id: payment.id, network: payment.network, title: payment.title, description: payment.description, asset: payment.asset, amount: payment.amount, amountBaseUnits: payment.amountBaseUnits, recipients: payment.recipients, reference: payment.reference, expiresAt: payment.expiresAt, status: payment.status, transactionSignature: payment.transactionSignature, payer: payment.payer, createdAt: payment.createdAt, paidAt: payment.paidAt, verification };
 }
 export async function publicSplitReceipt(id: string) {
   const payment = await getPayment(id);
@@ -299,6 +300,63 @@ function recipientsFromInput(input: Record<string, unknown>, total: bigint): Rec
   try { normalized = validateRecipients(requested); } catch (error) { throw new PaymentError(error instanceof Error ? error.message : 'Invalid recipient allocation.'); }
   const allocated = allocate(total, normalized.map((recipient) => recipient.bps));
   return normalized.map((recipient, position) => ({ position, label: recipient.label, address: recipient.wallet, percentageBps: recipient.bps, amountBaseUnits: allocated[position].toString() }));
+}
+function repeatSplitRow(row: Record<string, unknown>): import('./repeat-splits').RepeatSplit {
+  return { id: String(row.id), ownerWallet: String(row.owner_wallet), network: row.network as NetworkId,
+    name: String(row.name), description: String(row.description), asset: row.asset as Asset, amount: String(row.amount),
+    recipients: JSON.parse(String(row.recipients)), allocationType: 'percentage', revision: Number(row.revision),
+    createdAt: Number(row.created_at), updatedAt: Number(row.updated_at), lastUsedAt: row.last_used_at == null ? null : Number(row.last_used_at), executionCount: Number(row.execution_count) };
+}
+async function ownedRepeatSplit(id: unknown, wallet: string) {
+  if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(id)) throw new PaymentError('Repeat Split not found.', 404);
+  const row = await db().prepare('SELECT * FROM repeat_splits WHERE id=? AND owner_wallet=? AND network=? AND deleted_at IS NULL').bind(id, wallet, paymentNetwork()).first<Record<string, unknown>>();
+  if (!row) throw new PaymentError('Repeat Split not found for this wallet.', 404);
+  return repeatSplitRow(row);
+}
+export async function repeatSplitsRequest(req: Request) {
+  const origin = sameOrigin(req);
+  const body = await jsonBody(req);
+  if (typeof body.payload !== 'string' || typeof body.signature !== 'string') throw new PaymentError('Wallet authorization is required.', 401);
+  let input: Record<string, unknown>;
+  try { input = JSON.parse(body.payload); } catch { throw new PaymentError('Invalid authorization.'); }
+  if (!input || typeof input !== 'object') throw new PaymentError('Invalid authorization.');
+  const wallet = address(input.wallet);
+  verifyWalletSignature(wallet, repeatSplitMessage(body.payload, paymentNetwork()), body.signature);
+  const now = Date.now();
+  if (input.origin !== origin || !Number.isSafeInteger(input.timestamp) || Math.abs(now - Number(input.timestamp)) > 300000) throw new PaymentError('Authorization expired. Sign again.', 401);
+  if (!['list', 'get', 'create', 'update', 'delete'].includes(String(input.action))) throw new PaymentError('Unknown Repeat Split action.');
+  await enforceRateLimit('repeat-split:' + wallet, 120, 3600000);
+  if (input.action === 'list') {
+    const rows = await db().prepare('SELECT * FROM repeat_splits WHERE owner_wallet=? AND network=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 200').bind(wallet, paymentNetwork()).all<Record<string, unknown>>();
+    return { splits: rows.results.map(repeatSplitRow) };
+  }
+  const existing = input.action === 'create' ? null : await ownedRepeatSplit(input.id, wallet);
+  if (input.action === 'get') return existing;
+  if (existing && input.revision !== existing.revision) throw new PaymentError('This split changed. Reload before editing or deleting it.', 409);
+  let config: import('./repeat-splits').RepeatSplitConfig | undefined;
+  if (input.action !== 'delete') {
+    try { config = validateRepeatSplit(input.config); } catch (error) { throw new PaymentError(error instanceof Error ? error.message : 'Invalid split.'); }
+    const amount = toBaseUnits(config.amount, ASSETS[config.asset].decimals);
+    if (paymentNetwork() === 'mainnet-beta' && amount > (config.asset === 'SOL' ? mainnetMaxSolLamports() : mainnetMaxUsdcBaseUnits())) throw new PaymentError('Amount exceeds the current Mainnet payment limit.', 422);
+  }
+  if (typeof input.nonce !== 'string' || !/^[a-zA-Z0-9-]{20,100}$/.test(input.nonce)) throw new PaymentError('A fresh authorization is required.', 401);
+  await db().prepare('DELETE FROM repeat_split_authorizations WHERE expires_at<?').bind(now).run();
+  const used = await db().prepare('INSERT INTO repeat_split_authorizations(nonce,expires_at) VALUES (?,?) ON CONFLICT(nonce) DO NOTHING').bind(wallet + ':' + input.nonce, Number(input.timestamp) + 300001).run();
+  if (!used.meta.changes) throw new PaymentError('Authorization already used. Reload and sign again.', 409);
+  if (input.action === 'delete') {
+    const result = await db().prepare('UPDATE repeat_splits SET deleted_at=?,updated_at=?,revision=revision+1 WHERE id=? AND owner_wallet=? AND network=? AND revision=? AND deleted_at IS NULL').bind(now, now, existing!.id, wallet, paymentNetwork(), existing!.revision).run();
+    if (!result.meta.changes) throw new PaymentError('This split changed. Reload and try again.', 409);
+    return { deleted: true };
+  }
+  if (input.action === 'update') {
+    const c = config!;
+    const result = await db().prepare('UPDATE repeat_splits SET name=?,description=?,asset=?,amount=?,recipients=?,updated_at=?,revision=revision+1 WHERE id=? AND owner_wallet=? AND network=? AND revision=? AND deleted_at IS NULL').bind(c.name, c.description, c.asset, c.amount, JSON.stringify(c.recipients), now, existing!.id, wallet, paymentNetwork(), existing!.revision).run();
+    if (!result.meta.changes) throw new PaymentError('This split changed. Reload and try again.', 409);
+    return ownedRepeatSplit(existing!.id, wallet);
+  }
+  const id = crypto.randomUUID(), c = config!;
+  await db().prepare('INSERT INTO repeat_splits(id,network,owner_wallet,name,description,asset,amount,allocation_type,recipients,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(id, paymentNetwork(), wallet, c.name, c.description, c.asset, c.amount, c.allocationType, JSON.stringify(c.recipients), now, now).run();
+  return ownedRepeatSplit(id, wallet);
 }
 export async function createPayment(req: Request) {
   const origin = sameOrigin(req);
@@ -334,10 +392,12 @@ export async function createPayment(req: Request) {
   assertSettlementEnabled({ network, asset, recipients });
   const now = Date.now();
   if (!Number.isSafeInteger(input.expiresAt) || Number(input.expiresAt) < now + limits.minExpiryMs || Number(input.expiresAt) > now + limits.maxExpiryMs) throw new PaymentError('Expiration is outside the permitted range.');
+  const savedSplit = input.repeatSplitId === undefined ? null : await ownedRepeatSplit(input.repeatSplitId, merchant);
+  if (savedSplit && (input.repeatSplitRevision !== savedSplit.revision || asset !== savedSplit.asset || JSON.stringify(recipients.map(r => ({ label: r.label, wallet: r.address, bps: r.percentageBps }))) !== JSON.stringify(savedSplit.recipients))) throw new PaymentError('The saved split changed. Reload it and review again.', 409);
   await enforceRateLimit('create:' + merchant, limits.creationPerHour, 3_600_000);
   const id = crypto.randomUUID();
-  await db().prepare('INSERT INTO payments (id,network,merchant_wallet,title,description,asset,amount,amount_base_units,recipients,reference,expires_at,status,created_at,updated_at,creation_key) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(creation_key) DO NOTHING')
-    .bind(id, network, merchant, input.title.trim(), input.description, asset, String(input.amount), amount.toString(), JSON.stringify(recipients), input.reference, input.expiresAt, 'ACTIVE', now, now, body.signature).run();
+  await db().prepare('INSERT INTO payments (id,network,merchant_wallet,title,description,asset,amount,amount_base_units,recipients,reference,expires_at,status,created_at,updated_at,creation_key,repeat_split_id,repeat_split_name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(creation_key) DO NOTHING')
+    .bind(id, network, merchant, input.title.trim(), input.description, asset, String(input.amount), amount.toString(), JSON.stringify(recipients), input.reference, input.expiresAt, 'ACTIVE', now, now, body.signature, savedSplit?.id ?? null, savedSplit?.name ?? null).run();
   const saved = await db().prepare('SELECT id FROM payments WHERE creation_key=?').bind(body.signature).first<{ id: string }>();
   if (!saved) throw new PaymentError('Payment could not be stored.', 503);
   logEvent('payment_created', { paymentId: id, asset, amount: amount.toString(), recipientCount: recipients.length, split: recipients.length > 1 });
@@ -349,8 +409,16 @@ export async function listPayments(req: Request) {
   const stamp = Number(req.headers.get('x-auno-timestamp'));
   if (!Number.isSafeInteger(stamp) || Math.abs(Date.now() - stamp) > 300_000) throw new PaymentError('Connect and authorize payment history again.', 401);
   verifyWalletSignature(wallet, historyMessage(wallet, stamp, publicOrigin(req), paymentNetwork()), req.headers.get('x-auno-signature') || '');
-  const rows = await db().prepare('SELECT * FROM payments WHERE merchant_wallet=? AND network=? ORDER BY created_at DESC LIMIT 200').bind(wallet, paymentNetwork()).all<Record<string, unknown>>();
+  const rows = await db().prepare("SELECT * FROM payments WHERE network=? AND (merchant_wallet=? OR (payer=? AND status='PAID' AND transaction_signature IS NOT NULL AND paid_at IS NOT NULL)) ORDER BY created_at DESC, id DESC LIMIT 200").bind(paymentNetwork(), wallet, wallet).all<Record<string, unknown>>();
   return { payments: rows.results.map(deserialize) };
+}
+export async function getRepeatPayment(id: string) {
+  const payment = await getPayment(id);
+  if (payment.status !== 'PAID' || !payment.transactionSignature || !payment.payer || !payment.paidAt) {
+    throw new PaymentError('Only a finalized payment can be repeated. Check its status in payment history.', 409);
+  }
+  assertSettlementEnabled(payment);
+  return checkoutPayment(payment);
 }
 async function getAttempt(id: string, attemptId: unknown, token: unknown) {
   if (typeof attemptId !== 'string' || typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) throw new PaymentError('A valid attempt secret is required.', 401);
@@ -394,6 +462,7 @@ export async function preparePayment(req: Request, id: string) {
   const payer = address(body.payer);
   const payment = await getPayment(id);
   assertSettlementEnabled(payment);
+  if (payment.repeatSplitId && payer !== payment.merchantWallet) throw new PaymentError('Connect the owner wallet to pay this Repeat Split.', 403);
   if (payment.status !== 'ACTIVE') throw new PaymentError('This payment is not available for a new attempt.', 409);
   if (payment.recipients.some((recipient) => recipient.address === payer)) {
     logSplitValidationFailure(payment.network, 'payer_is_recipient', { paymentId: id, payer, recipientCount: payment.recipients.length });

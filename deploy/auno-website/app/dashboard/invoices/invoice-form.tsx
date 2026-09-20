@@ -4,7 +4,7 @@ import { useState, type ChangeEvent } from "react";
 import { FiArrowLeft, FiCheck, FiPlus } from "react-icons/fi";
 import { toast } from "sonner";
 import { AppShell, WalletButton } from "../../payment-ui";
-import { networkForOrigin } from "@/lib/payments/model";
+import { browserNetwork } from "@/lib/browser-network";
 import { readWalletSession, restoreWallet, type WalletSession } from "@/lib/payments/wallet";
 import { useEffect } from "react";
 import type { InvoiceRecord } from "@/lib/invoices/types";
@@ -28,7 +28,7 @@ export default function InvoiceForm() {
   function update(index:number, key:keyof Item, next:string) { setItems((current)=>current.map((item,i)=>i===index?{...item,[key]:next}:item)); }
   async function submit(publish:boolean) {
     if(!wallet) { toast.error("Connect the merchant wallet first."); return; }
-    setBusy(true); const origin=window.location.origin; const network=networkForOrigin(origin); const timestamp=Date.now();
+    setBusy(true); const origin=window.location.origin; const network=browserNetwork(); const timestamp=Date.now();
     try {
       const input={merchantWallet:wallet.address,origin,timestamp,title,description,customerName,customerEmail,recipientWallet,accountingCurrency:currency,acceptedAssets:[currency],items,discountType,discountValue,taxRate,additionalFees:fees,dueDate,terms};
       const payload=JSON.stringify(input); const signature=await wallet.signMessage("AUNO "+network+" invoice creation\n"+payload);

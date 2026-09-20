@@ -4,7 +4,9 @@ import { WalletIcon } from "@web3icons/react/dynamic";
 import { Wallet } from "lucide-react";
 import { FiAlertCircle, FiArrowRight, FiArrowUpRight, FiBarChart2, FiCheckCircle, FiClock, FiCopy, FiDollarSign, FiExternalLink, FiGitBranch, FiHelpCircle, FiInfo, FiLayers, FiFileText, FiPercent, FiPlus, FiPlusCircle, FiTrash2, FiUsers, FiX } from "react-icons/fi";
 import { usePathname } from "next/navigation";
-import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { browserNetwork } from '@/lib/browser-network';
+import { useSiteNetwork as useBrowserNetwork } from './network-context';
 import { toast } from "sonner";
 import { MainnetBetaRibbon, Footer, Nav, useMainnetSplitsCapability } from "./ui";
 import {
@@ -15,7 +17,6 @@ import {
   displayUnits,
   explorer,
   historyMessage,
-  networkForOrigin,
   percentToBps,
   toBaseUnits,
   validateSplitRecipients,
@@ -25,6 +26,10 @@ import {
   type SplitRecipient,
 } from "@/lib/payments/model";
 import { availableWallets, clearWalletSession, connectWallet, saveWalletSession, type WalletSession } from "@/lib/payments/wallet";
+import { repeatHref, type RepeatDraft } from "@/lib/payments/repeat";
+import { RepeatNotice, RepeatPaymentLoader } from "./repeat-payment";
+import { type RepeatSplit, validateRepeatSplit } from "@/lib/payments/repeat-splits";
+import { repeatSplitRequest } from "@/lib/payments/repeat-splits-client";
 
 const EmbeddedCheckout = lazy(async () => {
   const checkoutModule = await import("./checkout");
@@ -59,18 +64,6 @@ function errorText(error: unknown) {
   if (!(error instanceof Error)) return "Operation failed. Please try again.";
   if (error.message === "Failed to fetch") return "Could not reach AUNO. Check your connection and try again.";
   return error.message;
-}
-
-function browserNetwork() {
-  return networkForOrigin(typeof window === "undefined" ? "https://auno.cash" : window.location.origin);
-}
-
-function useBrowserNetwork() {
-  return useSyncExternalStore<NetworkId>(
-    () => () => undefined,
-    () => networkForOrigin(window.location.origin),
-    () => "devnet",
-  );
 }
 
 function walletChain(): "solana:devnet" | "solana:mainnet" {
@@ -175,6 +168,7 @@ export function AppShell({ children, title, subtitle }: { children: React.ReactN
   const tabs = [
     { href: "/dashboard/create", label: "Create Payment", icon: FiPlusCircle },
     { href: "/dashboard/payments", label: "Payment History", icon: FiClock },
+    { href: "/dashboard/repeat-splits", label: "Repeat Splits", icon: FiGitBranch },
     { href: "/dashboard/invoices", label: "Invoices", icon: FiFileText },
     ...(network === "devnet" || mainnetSplits ? [{ href: "/split", label: "Split Payment", icon: FiGitBranch }] : []),
     { href: "/docs", label: "Help", icon: FiHelpCircle },
@@ -218,12 +212,17 @@ function validationError({ title, amount, recipient, asset }: { title: string; a
 }
 
 export function CreatePayment() {
+  const network = useBrowserNetwork();
+  return <RepeatPaymentLoader network={network} split={false}>{(draft) => <CreatePaymentForm key={draft?.sourceId ?? "new"} draft={draft} />}</RepeatPaymentLoader>;
+}
+
+function CreatePaymentForm({ draft }: { draft?: RepeatDraft }) {
   const [wallet, setWallet] = useState<WalletSession | null>(null);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [asset, setAsset] = useState<Asset>("SOL");
-  const [recipient, setRecipient] = useState("");
+  const [title, setTitle] = useState(draft?.title ?? "");
+  const [description, setDescription] = useState(draft?.description ?? "");
+  const [amount, setAmount] = useState(draft?.amount ?? "");
+  const [asset, setAsset] = useState<Asset>(draft?.asset ?? "SOL");
+  const [recipient, setRecipient] = useState(draft?.recipients[0]?.wallet ?? "");
   const [hours, setHours] = useState("24");
   const [reference, setReference] = useState("");
   const [busy, setBusy] = useState(false);
@@ -281,6 +280,7 @@ export function CreatePayment() {
   const url = created ? `${typeof window === "undefined" ? "" : location.origin}/pay/${created.id}` : "";
   return (
     <AppShell title="Create a payment." subtitle="Define the amount. Choose the destination. Share one link.">
+      {draft && <RepeatNotice draft={draft} />}
       <div className="app-grid">
         <div className="panel">
           <div className="panel-title">Payment details <span className="badge">{mainnet ? "MAINNET BETA" : "DEVNET"}</span></div>
@@ -347,52 +347,68 @@ export function PaymentHistory() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [busy, setBusy] = useState(false);
+  const [scope, setScope] = useState("ALL");
+  const [loadError, setLoadError] = useState("");
+  const generation = useRef(0);
+  useEffect(() => () => { generation.current += 1; }, []);
 
   async function load() {
     if (!wallet) {
-      toast.error("Connect your merchant wallet first.");
+      toast.error("Connect your wallet first.");
       return;
     }
     setBusy(true);
+    setLoadError("");
+    const requestGeneration = ++generation.current;
     const notification = toast.loading("Authorizing payment history…");
     try {
       const timestamp = Date.now();
       const signature = await wallet.signMessage(historyMessage(wallet.address, timestamp, location.origin, browserNetwork()));
       const data = await api<{ payments: PaymentIntent[] }>(`/api/payments?wallet=${wallet.address}`, undefined, { "x-auno-signature": signature, "x-auno-timestamp": String(timestamp) });
+      if (generation.current !== requestGeneration) { toast.dismiss(notification); return; }
       setPayments(data.payments);
       toast.success(`${data.payments.length} payment${data.payments.length === 1 ? "" : "s"} loaded.`, { id: notification });
     } catch (error) {
+      if (generation.current !== requestGeneration) { toast.dismiss(notification); return; }
+      setLoadError(errorText(error));
       toast.error(errorText(error), { id: notification });
     } finally {
-      setBusy(false);
+      if (generation.current === requestGeneration) setBusy(false);
     }
   }
 
-  const visible = (payments || []).filter((payment) => (filter === "ALL" || payment.status === filter) && `${payment.title} ${payment.id}`.toLowerCase().includes(search.toLowerCase()));
+  const visible = (payments || []).filter((payment) => (filter === "ALL" || payment.status === filter)
+    && (scope === "ALL" || (scope === "SENT" ? payment.payer === wallet?.address : payment.merchantWallet === wallet?.address))
+    && `${payment.title} ${payment.id} ${payment.asset} ${payment.recipients.map((recipient) => `${recipient.label} ${recipient.address}`).join(" ")}`.toLowerCase().includes(search.toLowerCase()));
   return (
-    <AppShell title="Your payment history." subtitle="Actual payment requests, with settlement verified on Solana.">
+    <AppShell title="Your payment history." subtitle="View payments you created or sent. Repeat a verified payment with fresh wallet approval.">
       <div className="actions">
-        <WalletButton session={wallet} onChange={(nextWallet) => { setWallet(nextWallet); setPayments(null); }} />
+        <WalletButton session={wallet} onChange={(nextWallet) => { generation.current += 1; setWallet(nextWallet); setPayments(null); setBusy(false); setLoadError(""); }} />
         {wallet && <button className="button" disabled={busy} onClick={load}>{busy ? "Authorizing…" : "Authorize & Load History"}</button>}
       </div>
+      {loadError && <div className="notice error" role="alert">{loadError} Use Authorize & Load History to retry.</div>}
       {payments === null ? (
-        <div className="empty"><h2>Your payments belong here.</h2><p>Connect your merchant wallet and sign a message to view payment requests.</p></div>
+        <div className="empty"><h2>Your payments belong here.</h2><p>Connect your wallet and sign a message to view your requests and finalized payments sent through AUNO. This does not transfer funds.</p></div>
       ) : (
         <>
           <div className="history-tools">
-            <input aria-label="Search payments" placeholder="Search title or payment ID" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <input aria-label="Search payments" placeholder="Search title, token, recipient or ID" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <select aria-label="Filter payment activity" value={scope} onChange={(event) => setScope(event.target.value)}><option value="ALL">All activity</option><option value="SENT">Sent by me</option><option value="CREATED">Created by me</option></select>
             <select aria-label="Filter status" value={filter} onChange={(event) => setFilter(event.target.value)}>
               {["ALL", "ACTIVE", "PAID", "EXPIRED", "CANCELLED"].map((status) => <option key={status}>{status}</option>)}
             </select>
           </div>
           {visible.length ? (
-            <div className="table-wrap"><table><thead><tr><th>Payment</th><th>Amount</th><th>Status</th><th>Created</th><th>Transaction</th></tr></thead><tbody>
-              {visible.map((payment) => <tr key={payment.id}><td><a href={"/pay/" + payment.id}>{payment.title} <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a></td><td>{payment.amount} {payment.asset}</td><td><span className="badge">{payment.status}</span></td><td>{new Date(payment.createdAt).toLocaleDateString("en-US")}</td><td>{payment.transactionSignature ? <a href={explorer(payment.transactionSignature, payment.network)} target="_blank" rel="noreferrer">Explorer <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a> : "—"}</td></tr>)}
+            <div className="table-wrap"><table className="record-table"><thead><tr><th>Payment & recipients</th><th>Amount</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody>
+              {visible.map((payment) => {
+                const verified = payment.status === "PAID" && Boolean(payment.transactionSignature && payment.payer && payment.paidAt);
+                return <tr key={payment.id}><td><a href={"/pay/" + payment.id}>{payment.repeatSplitName ? `Repeat Split - ${payment.repeatSplitName}` : payment.title} <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a><small>{payment.payer === wallet?.address ? "Sent by you" : "Created by you"} · {payment.recipients.length > 1 ? "Split payment" : "Standard payment"}</small><details><summary>{payment.recipients.length} recipient{payment.recipients.length === 1 ? "" : "s"}</summary><ul className="record-recipients">{payment.recipients.map((recipient) => <li key={recipient.address}><strong>{recipient.label}</strong><code>{recipient.address}</code><span>{recipient.percentageBps / 100}% · {displayUnits(BigInt(recipient.amountBaseUnits), ASSETS[payment.asset].decimals)} {payment.asset}</span></li>)}</ul></details></td><td>{payment.amount} {payment.asset}</td><td><span className="badge">{verified ? "VERIFIED" : payment.status}</span></td><td>{new Date(payment.paidAt ?? payment.createdAt).toLocaleDateString("en-US")}<small>{payment.paidAt ? "Finalized" : "Created"}</small></td><td><div className="record-actions">{verified && <a className="button small" href={repeatHref(payment)}>Repeat Payment</a>}{payment.transactionSignature ? <a href={explorer(payment.transactionSignature, payment.network)} target="_blank" rel="noreferrer">{verified ? "Verified transaction" : "Explorer"} <FiExternalLink className="inline-icon action-icon" aria-hidden="true" /></a> : <span>Not settled</span>}</div></td></tr>;
+              })}
             </tbody></table></div>
           ) : (
             <div className="empty"><h2>No payments found.</h2><p>Create your first payment link or adjust your filters.</p><a className="button" href="/dashboard/create">Create Payment <FiArrowUpRight className="inline-icon action-icon" aria-hidden="true" /></a></div>
           )}
-          <p className="detail-note">Up to 200 most recent requests. No sample transactions.</p>
+          <p className="detail-note">Up to 200 most recent requests and finalized outgoing payments on this network. Records are saved by AUNO, not just this browser. Pending or failed payments cannot be repeated.</p>
         </>
       )}
     </AppShell>
@@ -428,6 +444,7 @@ function SplitReceipt({ receipt }: { receipt: PaymentIntent }) {
       <a className="button small" href={explorer(receipt.transactionSignature!, receipt.network)} target="_blank" rel="noreferrer">
         View verified transaction <FiExternalLink className="inline-icon action-icon" aria-hidden="true" />
       </a>
+      <div className="record-actions"><a className="button small" href={repeatHref(receipt)}>Repeat Payment</a><a className="text-link" href="/dashboard/payments">Payment history</a></div>
     </section>
   );
 }
@@ -439,13 +456,24 @@ const DEMO_SPLIT_ROWS = [
 ];
 
 export function SplitCalculator({ network = "devnet" }: { network?: NetworkId } = {}) {
+  return <RepeatPaymentLoader network={network} split>{(draft) => <SplitPaymentForm key={draft?.sourceId ?? "new"} network={network} draft={draft} />}</RepeatPaymentLoader>;
+}
+
+export function SplitPaymentForm({ network, draft: originalDraft, template, initialWallet = null, initialReview = false }: { network: NetworkId; draft?: RepeatDraft; template?: RepeatSplit; initialWallet?: WalletSession | null; initialReview?: boolean }) {
+  const draft = template ? { sourceId: template.id, network, title: template.name, description: template.description, amount: template.amount, asset: template.asset, recipients: template.recipients } : originalDraft;
+  const [savedTemplate, setSavedTemplate] = useState(template);
+  const [splitName, setSplitName] = useState(template?.name ?? originalDraft?.title ?? '');
+  const [splitNote, setSplitNote] = useState(template?.description ?? originalDraft?.description ?? '');
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const templateGeneration = useRef(0);
+
   const mainnet = network === "mainnet-beta";
   const settlementLabel = mainnet ? "Mainnet Beta" : "Devnet";
-  const [amount, setAmount] = useState(mainnet ? "0.01" : "100");
-  const [asset, setAsset] = useState<Asset>(mainnet ? "SOL" : "USDC");
-  const [rows, setRows] = useState(DEMO_SPLIT_ROWS);
-  const [step, setStep] = useState<"configure" | "review">("configure");
-  const [wallet, setWallet] = useState<WalletSession | null>(null);
+  const [amount, setAmount] = useState(draft?.amount ?? (mainnet ? "0.01" : "100"));
+  const [asset, setAsset] = useState<Asset>(draft?.asset ?? (mainnet ? "SOL" : "USDC"));
+  const [rows, setRows] = useState(draft ? draft.recipients.map((recipient) => ({ label: recipient.label, wallet: recipient.wallet, bps: (recipient.bps / 100).toFixed(2) })) : DEMO_SPLIT_ROWS);
+  const [step, setStep] = useState<"configure" | "review">(initialReview ? "review" : "configure");
+  const [wallet, setWallet] = useState<WalletSession | null>(initialWallet);
   const [settling, setSettling] = useState(false);
   const [settlement, setSettlement] = useState<SplitSettlement | null>(null);
   let error = "";
@@ -473,6 +501,8 @@ export function SplitCalculator({ network = "devnet" }: { network?: NetworkId } 
       toast.error("Connect the payer wallet before continuing.");
       return;
     }
+    if (savedTemplate && wallet.address !== savedTemplate.ownerWallet) { toast.error("Connect the owner wallet to pay this Repeat Split."); return; }
+    if (templateChanged) { toast.error("Save your changes before paying this Repeat Split."); return; }
     if (error) {
       toast.error(error);
       return;
@@ -488,8 +518,9 @@ export function SplitCalculator({ network = "devnet" }: { network?: NetworkId } 
     try {
       const payload = JSON.stringify({
         merchantWallet: wallet.address,
-        title: "Split payment",
-        description: `Atomic ${settlementLabel} split payment`,
+        title: savedTemplate?.name ?? (splitName.trim() || draft?.title || "Split payment"),
+        ...(savedTemplate ? { repeatSplitId: savedTemplate.id, repeatSplitRevision: savedTemplate.revision } : {}),
+        description: splitNote || draft?.description || `Atomic ${settlementLabel} split payment`,
         asset,
         amount,
         recipients: recipients.map((recipient) => ({ label: recipient.label, wallet: recipient.wallet, bps: recipient.bps })),
@@ -522,6 +553,20 @@ const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSend
     }
   }
 
+  const templateChanged = Boolean(savedTemplate && (asset !== savedTemplate.asset || JSON.stringify(recipients) !== JSON.stringify(savedTemplate.recipients)));
+  async function saveTemplate() {
+    if (!wallet) { toast.error("Connect your wallet before saving."); return; }
+    const current = templateGeneration.current;
+    setSavingTemplate(true);
+    try {
+      if (error) throw new Error(error);
+      const config = validateRepeatSplit({ name: splitName, description: splitNote, asset, amount, recipients, allocationType: 'percentage' });
+      const saved = await repeatSplitRequest<RepeatSplit>(wallet, network, savedTemplate ? 'update' : 'create', { config, ...(savedTemplate ? { id: savedTemplate.id, revision: savedTemplate.revision } : {}) });
+      if (current === templateGeneration.current) { setSavedTemplate(saved); toast.success('Repeat Split saved.'); }
+    } catch (e) { if (current === templateGeneration.current) toast.error('Repeat Split was not saved.', { description: errorText(e) }); }
+    finally { if (current === templateGeneration.current) setSavingTemplate(false); }
+  }
+
   const verifySplit = useCallback(async (quiet = false) => {
     if (!settlement) return;
     setSettling(true);
@@ -540,7 +585,7 @@ const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSend
     } finally {
       setSettling(false);
     }
-  }, [settlement]);
+  }, [settlement, settlementLabel]);
 
   useEffect(() => {
     if (!settlement || settlement.receipt || settlement.error || settling || !["SUBMITTED", "CONFIRMING"].includes(settlement.status)) return;
@@ -548,8 +593,12 @@ const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSend
     return () => window.clearTimeout(timer);
   }, [settlement, settling, verifySplit]);
 
+  if (savedTemplate && wallet?.address !== savedTemplate.ownerWallet) return <AppShell title="Repeat Split" subtitle="Connect the owner wallet to continue."><WalletButton session={wallet} onChange={(next) => { templateGeneration.current++; setWallet(next); setSavingTemplate(false); }} /><p className="detail-note">This saved split belongs to a different wallet.</p><a className="button outline" href="/dashboard/repeat-splits">Back to Repeat Splits</a></AppShell>;
+
   return (
     <AppShell title="One payment. Many destinations." subtitle={`Set exact destinations, review the split, then sign one atomic ${settlementLabel} transaction when settlement is enabled.`}>
+      {originalDraft && <RepeatNotice draft={originalDraft} />}
+      {savedTemplate && <div className="notice"><strong>{savedTemplate.name}</strong><p>Review this saved split. A new wallet signature is required for every payment.</p><a className="text-link" href="/dashboard/repeat-splits">Back to Repeat Splits</a></div>}
       <ol className="split-flow-steps" aria-label="Split payment flow">
         <li className={step === "configure" ? "is-current" : "is-complete"}><span>1</span><div><strong>Configure</strong><small>Amount, asset, wallets, allocation</small></div></li>
         <li className={step === "review" ? "is-current" : ""}><span>2</span><div><strong>Connect & review</strong><small>Confirm every destination</small></div></li>
@@ -673,8 +722,15 @@ const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSend
           <div className="split-allocation-list split-review-list">
             {recipients.map((recipient, index) => <div className={`split-allocation-item split-allocation-item-${index}`} key={recipient.wallet}><span className="split-allocation-label"><i aria-hidden="true" /><span><strong>{recipient.label}</strong><small>{recipient.wallet}</small></span></span><strong>{displayUnits(values[index], ASSETS[asset].decimals)} {asset}</strong></div>)}
           </div>
-          <div className="split-review-wallet"><div><strong>Connect payer wallet</strong><p>The payer signs once. The signed transaction must include every displayed destination and amount.</p></div><WalletButton session={wallet} onChange={setWallet} /></div>
+          <div className="split-review-wallet"><div><strong>Connect payer wallet</strong><p>The payer signs once. The signed transaction must include every displayed destination and amount.</p></div><WalletButton session={wallet} onChange={(next) => { templateGeneration.current++; setWallet(next); setSavingTemplate(false); }} /></div>
           <div className="split-planned-note"><FiInfo aria-hidden="true" /><div><strong>Atomic {settlementLabel} settlement</strong><p>Your wallet first authorizes this payment intent, then signs one transaction containing every displayed destination. No funds move until that transaction is signed.</p></div></div>
+          <section className="repeat-split-save" aria-label="Save Repeat Split">
+            <label>Split name<input maxLength={120} value={splitName} onChange={e => setSplitName(e.target.value)} placeholder="Monthly Team Payment" /></label>
+            <label>Note (optional)<textarea maxLength={1000} value={splitNote} onChange={e => setSplitNote(e.target.value)} /></label>
+            <button className="button outline" type="button" disabled={!wallet || Boolean(error) || savingTemplate || settling || Boolean(savedTemplate && wallet.address !== savedTemplate.ownerWallet)} onClick={saveTemplate}>{savingTemplate ? 'Saving…' : savedTemplate ? 'Save changes' : 'Save as Repeat Split'}</button>
+            <p className="detail-note">Stores recipients and allocation only; no automatic payments. {templateChanged ? 'Save changed recipients or asset before paying.' : ''}</p>
+            {savedTemplate && <a className="text-link" href="/dashboard/repeat-splits">{settlement?.receipt ? 'Pay Again Later' : 'View Repeat Splits'}</a>}
+          </section>
           {settlement && (
             settlement.receipt ? <SplitReceipt receipt={settlement.receipt} /> : (
               <div className={`notice${settlement.relayMessage || settlement.error ? " error" : ""}`} role="status" aria-live="polite">
@@ -696,7 +752,7 @@ const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSend
               </div>
             )
           )}
-          <div className="split-review-actions"><button className="button outline" type="button" disabled={settling} onClick={() => setStep("configure")}>Back to edit</button><button className="button" type="button" disabled={settling || Boolean(error) || !wallet} onClick={() => payAndSplit(Date.now())}>{settling ? "Preparing split…" : <>Pay & Split <FiArrowRight aria-hidden="true" /></>}</button></div>
+          <div className="split-review-actions"><button className="button outline" type="button" disabled={settling} onClick={() => setStep("configure")}>Back to edit</button><button className="button" type="button" disabled={settling || savingTemplate || templateChanged || Boolean(error) || !wallet || Boolean(savedTemplate && wallet?.address !== savedTemplate.ownerWallet) || Boolean(settlement)} onClick={() => payAndSplit(Date.now())}>{settling ? "Preparing split…" : <>Pay & Split <FiArrowRight aria-hidden="true" /></>}</button></div>
         </section>
       )}
     </AppShell>
@@ -704,6 +760,7 @@ const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSend
 }
 
 export function PublicSplitReceipt({ id }: { id: string }) {
+  const siteNetwork = useBrowserNetwork();
   const [receipt, setReceipt] = useState<PaymentIntent | null>(null);
   const [message, setMessage] = useState("Loading finalized receipt…");
 
@@ -729,7 +786,7 @@ export function PublicSplitReceipt({ id }: { id: string }) {
   }, [id]);
 
   return (
-    <AppShell title="Verified split receipt" subtitle={`Public, finalized ${receipt?.network === "mainnet-beta" ? "Mainnet Beta" : "Devnet"} settlement details.`}>
+    <AppShell title="Verified split receipt" subtitle={`Public, finalized ${(receipt?.network ?? siteNetwork) === "mainnet-beta" ? "Mainnet Beta" : "Devnet"} settlement details.`}>
       {receipt ? <SplitReceipt receipt={receipt} /> : (
         <section className="notice" role="status" aria-live="polite">
           <strong>Receipt not available yet</strong>

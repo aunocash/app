@@ -7,17 +7,17 @@ import bs58 from 'bs58';
 import nacl from 'tweetnacl';
 
 mkdirSync('work/repeat-tests', { recursive: true });
-for (const file of ['model', 'policy', 'server', 'repeat', 'repeat-splits']) {
+for (const file of ['model', 'policy', 'server', 'repeat', 'repeat-splits', 'saved-recipients']) {
   const source = readFileSync(`lib/payments/${file}.ts`, 'utf8')
     .replace("import { env } from 'cloudflare:workers';", 'const env = globalThis.__REPEAT_TEST_ENV__;')
     .replaceAll("from './model'", "from './model.mjs'")
-    .replaceAll("from './policy'", "from './policy.mjs'").replaceAll("from './repeat-splits'", "from './repeat-splits.mjs'");
+    .replaceAll("from './policy'", "from './policy.mjs'").replaceAll("from './repeat-splits'", "from './repeat-splits.mjs'").replaceAll("from './saved-recipients'", "from './saved-recipients.mjs'");
   writeFileSync(`work/repeat-tests/${file}.mjs`, ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
   }).outputText);
 }
 const sqlite = new DatabaseSync(':memory:');
-for (const name of ['0000_lush_the_executioner', '0001_secure_atomic_split', '0002_mainnet_beta', '0003_invoices', '0004_repeat_splits']) {
+for (const name of ['0000_lush_the_executioner', '0001_secure_atomic_split', '0002_mainnet_beta', '0003_invoices', '0004_repeat_splits', '0005_saved_recipients']) {
   sqlite.exec(readFileSync(`drizzle/${name}.sql`, 'utf8'));
 }
 function statement(sql, args = []) {

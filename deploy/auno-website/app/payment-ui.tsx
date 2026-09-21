@@ -30,6 +30,8 @@ import { repeatHref, type RepeatDraft } from "@/lib/payments/repeat";
 import { RepeatNotice, RepeatPaymentLoader } from "./repeat-payment";
 import { type RepeatSplit, validateRepeatSplit } from "@/lib/payments/repeat-splits";
 import { repeatSplitRequest } from "@/lib/payments/repeat-splits-client";
+import { SavedRecipientPicker, ContactDialog } from './saved-recipients-ui';
+import type { ContactStatus } from '@/lib/payments/saved-recipients';
 
 const EmbeddedCheckout = lazy(async () => {
   const checkoutModule = await import("./checkout");
@@ -71,6 +73,7 @@ function walletChain(): "solana:devnet" | "solana:mainnet" {
 }
 
 export function WalletButton({ session, onChange }: { session: WalletSession | null; onChange: (session: WalletSession | null) => void }) {
+  useEffect(() => session?.subscribeChanges?.(() => { clearWalletSession(); onChange(null); }), [session, onChange]);
   const [names, setNames] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -117,6 +120,8 @@ export function WalletButton({ session, onChange }: { session: WalletSession | n
 
   async function disconnect() {
     if (!session) return;
+    clearWalletSession();
+    onChange(null);
     setBusy(true);
     const notification = toast.loading("Disconnecting wallet…");
     try {
@@ -169,6 +174,7 @@ export function AppShell({ children, title, subtitle }: { children: React.ReactN
     { href: "/dashboard/create", label: "Create Payment", icon: FiPlusCircle },
     { href: "/dashboard/payments", label: "Payment History", icon: FiClock },
     { href: "/dashboard/repeat-splits", label: "Repeat Splits", icon: FiGitBranch },
+    { href: "/dashboard/recipients", label: "Saved Recipients", icon: FiUsers },
     { href: "/dashboard/invoices", label: "Invoices", icon: FiFileText },
     ...(network === "devnet" || mainnetSplits ? [{ href: "/split", label: "Split Payment", icon: FiGitBranch }] : []),
     { href: "/docs", label: "Help", icon: FiHelpCircle },
@@ -454,6 +460,7 @@ const DEMO_SPLIT_ROWS = [
   { label: "Noah Williams", wallet: "", bps: "15" },
   { label: "Ava Mitchell", wallet: "", bps: "5" },
 ];
+type SplitFormRow = { label: string; wallet: string; bps: string; contactId?: string; contactName?: string; contactOwner?: string };
 
 export function SplitCalculator({ network = "devnet" }: { network?: NetworkId } = {}) {
   return <RepeatPaymentLoader network={network} split>{(draft) => <SplitPaymentForm key={draft?.sourceId ?? "new"} network={network} draft={draft} />}</RepeatPaymentLoader>;
@@ -462,6 +469,9 @@ export function SplitCalculator({ network = "devnet" }: { network?: NetworkId } 
 export function SplitPaymentForm({ network, draft: originalDraft, template, initialWallet = null, initialReview = false }: { network: NetworkId; draft?: RepeatDraft; template?: RepeatSplit; initialWallet?: WalletSession | null; initialReview?: boolean }) {
   const draft = template ? { sourceId: template.id, network, title: template.name, description: template.description, amount: template.amount, asset: template.asset, recipients: template.recipients } : originalDraft;
   const [savedTemplate, setSavedTemplate] = useState(template);
+  const [contactStatuses, setContactStatuses] = useState<ContactStatus[]>(template?.contactStatuses ?? []);
+  const [contactChange, setContactChange] = useState<{ index: number; previous: string; next: string; name: string } | null>(null);
+  const [checkingContacts, setCheckingContacts] = useState(false);
   const [splitName, setSplitName] = useState(template?.name ?? originalDraft?.title ?? '');
   const [splitNote, setSplitNote] = useState(template?.description ?? originalDraft?.description ?? '');
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -471,7 +481,7 @@ export function SplitPaymentForm({ network, draft: originalDraft, template, init
   const settlementLabel = mainnet ? "Mainnet Beta" : "Devnet";
   const [amount, setAmount] = useState(draft?.amount ?? (mainnet ? "0.01" : "100"));
   const [asset, setAsset] = useState<Asset>(draft?.asset ?? (mainnet ? "SOL" : "USDC"));
-  const [rows, setRows] = useState(draft ? draft.recipients.map((recipient) => ({ label: recipient.label, wallet: recipient.wallet, bps: (recipient.bps / 100).toFixed(2) })) : DEMO_SPLIT_ROWS);
+  const [rows, setRows] = useState<SplitFormRow[]>(draft ? draft.recipients.map((recipient, i) => ({ label: recipient.label, wallet: recipient.wallet, bps: (recipient.bps / 100).toFixed(2), contactId: template?.recipients[i]?.contactId, contactOwner: template?.ownerWallet })) : DEMO_SPLIT_ROWS);
   const [step, setStep] = useState<"configure" | "review">(initialReview ? "review" : "configure");
   const [wallet, setWallet] = useState<WalletSession | null>(initialWallet);
   const [settling, setSettling] = useState(false);
@@ -553,16 +563,31 @@ const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSend
     }
   }
 
-  const templateChanged = Boolean(savedTemplate && (asset !== savedTemplate.asset || JSON.stringify(recipients) !== JSON.stringify(savedTemplate.recipients)));
+  const templateChanged = Boolean(savedTemplate && (asset !== savedTemplate.asset || JSON.stringify(recipients) !== JSON.stringify(savedTemplate.recipients.map(r => ({label:r.label,wallet:r.wallet,bps:r.bps})))));
+  function changeSplitWallet(next: WalletSession | null) {
+    templateGeneration.current++; setWallet(next); setSavingTemplate(false); setCheckingContacts(false); setContactChange(null); setContactStatuses([]);
+    setRows(current => current.map(row => ({ ...row, contactName: undefined, ...(!savedTemplate ? { contactId: undefined, contactOwner: undefined } : {}) })));
+  }
+  async function checkContacts() {
+    if (!wallet || !savedTemplate || checkingContacts) return;
+    const generation = templateGeneration.current; setCheckingContacts(true);
+    try { const latest = await repeatSplitRequest<RepeatSplit>(wallet, network, 'get', { id: savedTemplate.id }); if (generation === templateGeneration.current) { setContactStatuses(latest.contactStatuses ?? []); toast.success('Saved recipient addresses checked. Payment destinations are unchanged.'); } }
+    catch (e) { if (generation === templateGeneration.current) toast.error(errorText(e)); }
+    finally { if (generation === templateGeneration.current) setCheckingContacts(false); }
+  }
+  function privateContactName(row: SplitFormRow) {
+    if (!wallet || row.contactOwner !== wallet.address) return '';
+    return row.contactName || contactStatuses.find(c => c.contactId === row.contactId && !c.deleted)?.name || '';
+  }
   async function saveTemplate() {
     if (!wallet) { toast.error("Connect your wallet before saving."); return; }
     const current = templateGeneration.current;
     setSavingTemplate(true);
     try {
       if (error) throw new Error(error);
-      const config = validateRepeatSplit({ name: splitName, description: splitNote, asset, amount, recipients, allocationType: 'percentage' });
+      const config = validateRepeatSplit({ name: splitName, description: splitNote, asset, amount, recipients: recipients.map((r,i) => ({ ...r, ...(rows[i].contactId && rows[i].contactOwner === wallet.address ? { contactId: rows[i].contactId } : {}) })), allocationType: 'percentage' });
       const saved = await repeatSplitRequest<RepeatSplit>(wallet, network, savedTemplate ? 'update' : 'create', { config, ...(savedTemplate ? { id: savedTemplate.id, revision: savedTemplate.revision } : {}) });
-      if (current === templateGeneration.current) { setSavedTemplate(saved); toast.success('Repeat Split saved.'); }
+      if (current === templateGeneration.current) { setSavedTemplate(saved); setContactStatuses(saved.contactStatuses ?? []); toast.success('Repeat Split saved.'); }
     } catch (e) { if (current === templateGeneration.current) toast.error('Repeat Split was not saved.', { description: errorText(e) }); }
     finally { if (current === templateGeneration.current) setSavingTemplate(false); }
   }
@@ -593,7 +618,7 @@ const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSend
     return () => window.clearTimeout(timer);
   }, [settlement, settling, verifySplit]);
 
-  if (savedTemplate && wallet?.address !== savedTemplate.ownerWallet) return <AppShell title="Repeat Split" subtitle="Connect the owner wallet to continue."><WalletButton session={wallet} onChange={(next) => { templateGeneration.current++; setWallet(next); setSavingTemplate(false); }} /><p className="detail-note">This saved split belongs to a different wallet.</p><a className="button outline" href="/dashboard/repeat-splits">Back to Repeat Splits</a></AppShell>;
+  if (savedTemplate && wallet?.address !== savedTemplate.ownerWallet) return <AppShell title="Repeat Split" subtitle="Connect the owner wallet to continue."><WalletButton session={wallet} onChange={changeSplitWallet} /><p className="detail-note">This saved split belongs to a different wallet.</p><a className="button outline" href="/dashboard/repeat-splits">Back to Repeat Splits</a></AppShell>;
 
   return (
     <AppShell title="One payment. Many destinations." subtitle={`Set exact destinations, review the split, then sign one atomic ${settlementLabel} transaction when settlement is enabled.`}>
@@ -605,6 +630,13 @@ const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSend
         <li><span>3</span><div><strong>Pay & Split</strong><small>One signature, atomic settlement</small></div></li>
       </ol>
 
+      {savedTemplate && savedTemplate.recipients.some(r => r.contactId) && <div className="notice"><button type="button" className="button outline small" disabled={!wallet || checkingContacts || settling || Boolean(settlement)} onClick={checkContacts}>{checkingContacts ? 'Checking…' : 'Check saved recipient addresses'}</button>{contactStatuses.map(status => {
+        const index = rows.findIndex(row => row.contactId === status.contactId);
+        if (index < 0 || (!status.deleted && rows[index].wallet === status.currentAddress)) return null;
+        return <div className="contact-address-notice" key={status.contactId}><strong>{status.deleted ? 'Saved contact removed' : 'Saved contact address changed'}</strong><p>{status.deleted ? 'This split keeps its saved destination. Deleting a contact does not change payments.' : 'This split still uses the previous address. Review both addresses before updating it.'}</p><code>{rows[index].wallet}</code>{status.currentAddress && <><p>Current contact address</p><code>{status.currentAddress}</code><button type="button" className="button outline small" disabled={settling || Boolean(settlement)} onClick={() => setContactChange({ index, previous: rows[index].wallet, next: status.currentAddress!, name: status.name })}>Review address update</button></>}</div>;
+      })}</div>}
+      {contactChange && <ContactDialog title="Review split address update" onClose={() => setContactChange(null)}><p>{contactChange.name} (private contact label)</p><p>Previous destination</p><code>{contactChange.previous}</code><p>New destination</p><code>{contactChange.next}</code><p>This updates the draft only. Review the split and choose Save changes to update the saved template.</p><button type="button" className="button" onClick={() => { setRows(current => current.map((r,i) => i === contactChange.index ? { ...r, wallet: contactChange.next, contactName: contactChange.name } : r)); setStep('configure'); setContactChange(null); }}>Use new address in draft</button></ContactDialog>}
+      {step === "configure" && <div className="split-contact-tools"><WalletButton session={wallet} onChange={changeSplitWallet} /><p className="detail-note">Connect to choose saved recipients, or enter destinations manually. Contact names remain private; recipient labels entered below appear on the payment.</p></div>}
       {step === "configure" ? (
       <div className="split-workspace">
         <section className="panel split-editor-panel" aria-labelledby="split-editor-title">
@@ -647,8 +679,9 @@ const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSend
                 </label>
                 <label className="split-wallet-field">
                   <span className="sr-only">Recipient {index + 1} Solana wallet</span>
-                  <input aria-label={`Recipient ${index + 1} Solana wallet`} autoComplete="off" placeholder="Solana wallet address" spellCheck="false" value={row.wallet} onChange={(event) => setRows(rows.map((current, currentIndex) => currentIndex === index ? { ...current, wallet: event.target.value } : current))} />
+                  <input aria-label={`Recipient ${index + 1} Solana wallet`} autoComplete="off" placeholder="Solana wallet address" spellCheck="false" value={row.wallet} onChange={(event) => setRows(rows.map((current, currentIndex) => currentIndex === index ? { ...current, wallet: event.target.value, contactId: undefined, contactName: undefined, contactOwner: undefined } : current))} />
                 </label>
+                <div className="split-row-contact-picker"><SavedRecipientPicker wallet={wallet} network={network} disabled={settling || Boolean(settlement)} onSelect={contact => setRows(current => current.map((row, i) => i === index ? { ...row, label: `Recipient ${index + 1}`, wallet: contact.address, contactId: contact.id, contactName: contact.name, contactOwner: contact.ownerWallet } : row))} />{privateContactName(row) && <small>Private contact: {privateContactName(row)}</small>}</div>
                 <label className="split-percent-field">
                   <span className="sr-only">Recipient {index + 1} percentage</span>
                   <input aria-label={`Recipient ${index + 1} percentage`} inputMode="decimal" value={row.bps} onChange={(event) => setRows(rows.map((current, currentIndex) => currentIndex === index ? { ...current, bps: event.target.value } : current))} />
@@ -720,9 +753,9 @@ const walletSignature = wallet.signAndSendTransaction ? await wallet.signAndSend
           </div>
           <div className="split-review-summary"><span>Total</span><strong>{amount} {asset}</strong><span>{recipients.length} recipients</span></div>
           <div className="split-allocation-list split-review-list">
-            {recipients.map((recipient, index) => <div className={`split-allocation-item split-allocation-item-${index}`} key={recipient.wallet}><span className="split-allocation-label"><i aria-hidden="true" /><span><strong>{recipient.label}</strong><small>{recipient.wallet}</small></span></span><strong>{displayUnits(values[index], ASSETS[asset].decimals)} {asset}</strong></div>)}
+            {recipients.map((recipient, index) => <div className={`split-allocation-item split-allocation-item-${index}`} key={recipient.wallet}><span className="split-allocation-label"><i aria-hidden="true" /><span><strong>{privateContactName(rows[index]) || recipient.label}</strong><small>{recipient.wallet}</small></span></span><strong>{displayUnits(values[index], ASSETS[asset].decimals)} {asset}</strong></div>)}
           </div>
-          <div className="split-review-wallet"><div><strong>Connect payer wallet</strong><p>The payer signs once. The signed transaction must include every displayed destination and amount.</p></div><WalletButton session={wallet} onChange={(next) => { templateGeneration.current++; setWallet(next); setSavingTemplate(false); }} /></div>
+          <div className="split-review-wallet"><div><strong>Connect payer wallet</strong><p>The payer signs once. The signed transaction must include every displayed destination and amount.</p></div><WalletButton session={wallet} onChange={changeSplitWallet} /></div>
           <div className="split-planned-note"><FiInfo aria-hidden="true" /><div><strong>Atomic {settlementLabel} settlement</strong><p>Your wallet first authorizes this payment intent, then signs one transaction containing every displayed destination. No funds move until that transaction is signed.</p></div></div>
           <section className="repeat-split-save" aria-label="Save Repeat Split">
             <label>Split name<input maxLength={120} value={splitName} onChange={e => setSplitName(e.target.value)} placeholder="Monthly Team Payment" /></label>

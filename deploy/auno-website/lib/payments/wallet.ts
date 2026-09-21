@@ -30,6 +30,7 @@ export type WalletSession = {
   name: string;
   chain: SolanaChain;
   assertActive: () => void;
+  subscribeChanges?: (changed: () => void) => () => void;
   signMessage: (text: string) => Promise<string>;
   signAndSendTransaction?: (base64: string) => Promise<string>;
   signTransaction?: (base64: string) => Promise<string>;
@@ -109,6 +110,10 @@ function createSession(wallet: StandardWallet, account: WalletAccount, chain: So
     name: wallet.name,
     chain,
     assertActive: () => { activeContext(); },
+    subscribeChanges: (changed) => {
+      const feature = wallet.features['standard:events'] as { on: (event: 'change', listener: (properties: { accounts?: readonly WalletAccount[] }) => void) => () => void } | undefined;
+      return feature?.on('change', properties => { if (properties.accounts) changed(); }) ?? (() => {});
+    },
     signMessage: async (text) => {
       const { wallet: currentWallet, account: currentAccount } = activeContext();
       const feature = currentWallet.features["solana:signMessage"] as { signMessage: (input: unknown) => Promise<{ signature: Uint8Array }[]> };

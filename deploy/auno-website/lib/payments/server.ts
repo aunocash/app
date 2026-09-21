@@ -6,6 +6,7 @@ import nacl from 'tweetnacl';
 import { ASSETS, NETWORKS, MEMO_PROGRAM, allocate, creationMessage, displayUnits, explorer, historyMessage, toBaseUnits, usdcMint, validateRecipients, type Asset, type NetworkId, type PaymentIntent, type Recipient, type SplitRecipient } from './model';
 import { paymentPolicy } from './policy';
 import { repeatSplitMessage, validateRepeatSplit } from './repeat-splits';
+import { recipientMessage, validateContact, type RecipientContact, type ContactStatus } from './saved-recipients';
 
 export class PaymentError extends Error { constructor(message: string, public status = 400) { super(message); } }
 type Runtime = Record<string, unknown> & { DB?: D1Database; SOLANA_RPC_URL?: string; SOLANA_NETWORK?: string; AUNO_PUBLIC_ORIGIN?: string; AUNO_TRUSTED_CLIENT_HEADER?: string; AUNO_MAINNET_ENABLED?: string; AUNO_MAINNET_SPLITS_ENABLED?: string; AUNO_MAINNET_USDC_ENABLED?: string; AUNO_DEVNET_SPLITS_ENABLED?: string; AUNO_MAX_SOL_LAMPORTS?: string; AUNO_MAX_USDC_BASE_UNITS?: string; AUNO_VERIFIER_BATCH_SIZE?: string; AUNO_VERIFIER_TOKEN?: string };
@@ -301,6 +302,75 @@ function recipientsFromInput(input: Record<string, unknown>, total: bigint): Rec
   const allocated = allocate(total, normalized.map((recipient) => recipient.bps));
   return normalized.map((recipient, position) => ({ position, label: recipient.label, address: recipient.wallet, percentageBps: recipient.bps, amountBaseUnits: allocated[position].toString() }));
 }
+function contactRow(row: Record<string, unknown>): RecipientContact {
+  return { id: String(row.id), ownerWallet: String(row.owner_wallet), name: String(row.name), address: String(row.address), note: String(row.note), revision: Number(row.revision), createdAt: Number(row.created_at), updatedAt: Number(row.updated_at) };
+}
+async function ownedContact(id: unknown, wallet: string) {
+  if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(id)) throw new PaymentError('Saved recipient not found.', 404);
+  const row = await db().prepare('SELECT * FROM saved_recipients WHERE id=? AND owner_wallet=? AND deleted_at IS NULL').bind(id, wallet).first<Record<string, unknown>>();
+  if (!row) throw new PaymentError('Saved recipient not found.', 404);
+  return contactRow(row);
+}
+export async function savedRecipientsRequest(req: Request) {
+  const origin = sameOrigin(req), body = await jsonBody(req);
+  if (typeof body.payload !== 'string' || typeof body.signature !== 'string') throw new PaymentError('Authorize access with your wallet.', 401);
+  let input: Record<string, unknown>;
+  try { input = JSON.parse(body.payload); } catch { throw new PaymentError('Invalid authorization.', 401); }
+  if (!input || typeof input !== 'object') throw new PaymentError('Invalid authorization.', 401);
+  const wallet = address(input.wallet);
+  verifyWalletSignature(wallet, recipientMessage(body.payload, paymentNetwork()), body.signature);
+  const now = Date.now();
+  if (input.origin !== origin || !Number.isSafeInteger(input.timestamp) || Math.abs(now - Number(input.timestamp)) > 300000) throw new PaymentError('Authorization expired. Sign again.', 401);
+  if (!['list','get','create','update','delete'].includes(String(input.action))) throw new PaymentError('Unknown recipient action.');
+  await enforceRateLimit('saved-recipients:' + wallet, 180, 3600000);
+  if (input.action === 'list') {
+    const rows = await db().prepare('SELECT * FROM saved_recipients WHERE owner_wallet=? AND deleted_at IS NULL ORDER BY name COLLATE NOCASE, id LIMIT 500').bind(wallet).all<Record<string, unknown>>();
+    return { recipients: rows.results.map(contactRow) };
+  }
+  const existing = input.action === 'create' ? null : await ownedContact(input.id, wallet);
+  if (input.action === 'get') return existing;
+  if (existing && existing.revision !== input.revision) throw new PaymentError('This recipient changed. Reload before saving.', 409);
+  let config: ReturnType<typeof validateContact> | undefined;
+  if (input.action !== 'delete') {
+    try { config = validateContact(input.config); } catch (error) { throw new PaymentError(error instanceof Error ? error.message : 'Invalid recipient.'); }
+    const duplicate = await db().prepare('SELECT id FROM saved_recipients WHERE owner_wallet=? AND address=? AND deleted_at IS NULL AND id!=?').bind(wallet, config.address, existing?.id ?? '').first();
+    if (duplicate) throw new PaymentError('This wallet is already saved.', 409);
+    if (existing && config.address !== existing.address && input.confirmAddressChange !== true) throw new PaymentError('Confirm the address change. Changing this contact will not update existing saved payments or splits.', 409);
+  }
+  if (typeof input.nonce !== 'string' || !/^[a-zA-Z0-9-]{20,100}$/.test(input.nonce)) throw new PaymentError('A fresh authorization is required.', 401);
+  await db().prepare('DELETE FROM saved_recipient_authorizations WHERE expires_at<?').bind(now).run();
+  const consumed = await db().prepare('INSERT INTO saved_recipient_authorizations(nonce,expires_at) VALUES (?,?) ON CONFLICT(nonce) DO NOTHING').bind(wallet + ':' + input.nonce, Number(input.timestamp) + 300001).run();
+  if (!consumed.meta.changes) throw new PaymentError('Authorization already used. Sign again.', 409);
+  if (input.action === 'delete') {
+    const result = await db().prepare('UPDATE saved_recipients SET deleted_at=?,updated_at=?,revision=revision+1 WHERE id=? AND owner_wallet=? AND revision=? AND deleted_at IS NULL').bind(now, now, existing!.id, wallet, existing!.revision).run();
+    if (!result.meta.changes) throw new PaymentError('This recipient changed. Reload and retry.', 409);
+    return { deleted: true };
+  }
+  const c = config!, id = existing?.id ?? crypto.randomUUID();
+  try {
+    if (existing) {
+      const result = await db().prepare('UPDATE saved_recipients SET name=?,address=?,note=?,revision=revision+1,updated_at=? WHERE id=? AND owner_wallet=? AND revision=? AND deleted_at IS NULL').bind(c.name, c.address, c.note, now, id, wallet, existing.revision).run();
+      if (!result.meta.changes) throw new PaymentError('This recipient changed. Reload and retry.', 409);
+    } else {
+      const count = await db().prepare('SELECT COUNT(*) AS total FROM saved_recipients WHERE owner_wallet=? AND deleted_at IS NULL').bind(wallet).first<{ total: number }>();
+      if (Number(count?.total) >= 500) throw new PaymentError('You can save up to 500 recipients.', 422);
+      await db().prepare('INSERT INTO saved_recipients(id,owner_wallet,name,address,note,created_at,updated_at) VALUES (?,?,?,?,?,?,?)').bind(id, wallet, c.name, c.address, c.note, now, now).run();
+    }
+  } catch (error) {
+    if (error instanceof Error && /UNIQUE constraint failed.*saved_recipients|saved_recipients_owner_address/.test(error.message)) throw new PaymentError('This wallet is already saved.', 409);
+    throw error;
+  }
+  return ownedContact(id, wallet);
+}
+async function splitContactStatus(split: import('./repeat-splits').RepeatSplit) {
+  const statuses: ContactStatus[] = [];
+  for (const r of split.recipients) {
+    if (!r.contactId) continue;
+    const row = await db().prepare('SELECT name,address,deleted_at FROM saved_recipients WHERE id=? AND owner_wallet=?').bind(r.contactId, split.ownerWallet).first<{ name: string; address: string; deleted_at: number | null }>();
+    statuses.push({ contactId: r.contactId, name: row && !row.deleted_at ? row.name : '', snapshotAddress: r.wallet, currentAddress: row && !row.deleted_at ? row.address : null, deleted: !row || row.deleted_at !== null });
+  }
+  return { ...split, contactStatuses: statuses };
+}
 function repeatSplitRow(row: Record<string, unknown>): import('./repeat-splits').RepeatSplit {
   return { id: String(row.id), ownerWallet: String(row.owner_wallet), network: row.network as NetworkId,
     name: String(row.name), description: String(row.description), asset: row.asset as Asset, amount: String(row.amount),
@@ -311,7 +381,7 @@ async function ownedRepeatSplit(id: unknown, wallet: string) {
   if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(id)) throw new PaymentError('Repeat Split not found.', 404);
   const row = await db().prepare('SELECT * FROM repeat_splits WHERE id=? AND owner_wallet=? AND network=? AND deleted_at IS NULL').bind(id, wallet, paymentNetwork()).first<Record<string, unknown>>();
   if (!row) throw new PaymentError('Repeat Split not found for this wallet.', 404);
-  return repeatSplitRow(row);
+  return splitContactStatus(repeatSplitRow(row));
 }
 export async function repeatSplitsRequest(req: Request) {
   const origin = sameOrigin(req);
@@ -328,7 +398,7 @@ export async function repeatSplitsRequest(req: Request) {
   await enforceRateLimit('repeat-split:' + wallet, 120, 3600000);
   if (input.action === 'list') {
     const rows = await db().prepare('SELECT * FROM repeat_splits WHERE owner_wallet=? AND network=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 200').bind(wallet, paymentNetwork()).all<Record<string, unknown>>();
-    return { splits: rows.results.map(repeatSplitRow) };
+    return { splits: await Promise.all(rows.results.map(row => splitContactStatus(repeatSplitRow(row)))) };
   }
   const existing = input.action === 'create' ? null : await ownedRepeatSplit(input.id, wallet);
   if (input.action === 'get') return existing;
@@ -336,6 +406,12 @@ export async function repeatSplitsRequest(req: Request) {
   let config: import('./repeat-splits').RepeatSplitConfig | undefined;
   if (input.action !== 'delete') {
     try { config = validateRepeatSplit(input.config); } catch (error) { throw new PaymentError(error instanceof Error ? error.message : 'Invalid split.'); }
+    for (const r of config.recipients) {
+      if (!r.contactId) continue;
+      const contact = await db().prepare('SELECT address,deleted_at FROM saved_recipients WHERE id=? AND owner_wallet=?').bind(r.contactId, wallet).first<{ address: string; deleted_at: number | null }>();
+      const preserved = existing?.recipients.some(previous => previous.contactId === r.contactId && previous.wallet === r.wallet);
+      if (!contact || (!preserved && (contact.deleted_at !== null || contact.address !== r.wallet))) throw new PaymentError('The saved recipient changed or is unavailable. Select it again and review the address.', 409);
+    }
     const amount = toBaseUnits(config.amount, ASSETS[config.asset].decimals);
     if (paymentNetwork() === 'mainnet-beta' && amount > (config.asset === 'SOL' ? mainnetMaxSolLamports() : mainnetMaxUsdcBaseUnits())) throw new PaymentError('Amount exceeds the current Mainnet payment limit.', 422);
   }
@@ -393,7 +469,7 @@ export async function createPayment(req: Request) {
   const now = Date.now();
   if (!Number.isSafeInteger(input.expiresAt) || Number(input.expiresAt) < now + limits.minExpiryMs || Number(input.expiresAt) > now + limits.maxExpiryMs) throw new PaymentError('Expiration is outside the permitted range.');
   const savedSplit = input.repeatSplitId === undefined ? null : await ownedRepeatSplit(input.repeatSplitId, merchant);
-  if (savedSplit && (input.repeatSplitRevision !== savedSplit.revision || asset !== savedSplit.asset || JSON.stringify(recipients.map(r => ({ label: r.label, wallet: r.address, bps: r.percentageBps }))) !== JSON.stringify(savedSplit.recipients))) throw new PaymentError('The saved split changed. Reload it and review again.', 409);
+  if (savedSplit && (input.repeatSplitRevision !== savedSplit.revision || asset !== savedSplit.asset || JSON.stringify(recipients.map(r => ({ label: r.label, wallet: r.address, bps: r.percentageBps }))) !== JSON.stringify(savedSplit.recipients.map(r => ({ label: r.label, wallet: r.wallet, bps: r.bps }))))) throw new PaymentError('The saved split changed. Reload it and review again.', 409);
   await enforceRateLimit('create:' + merchant, limits.creationPerHour, 3_600_000);
   const id = crypto.randomUUID();
   await db().prepare('INSERT INTO payments (id,network,merchant_wallet,title,description,asset,amount,amount_base_units,recipients,reference,expires_at,status,created_at,updated_at,creation_key,repeat_split_id,repeat_split_name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(creation_key) DO NOTHING')
